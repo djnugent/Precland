@@ -7,10 +7,10 @@ import numpy as np
 
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
-from VisNav.Common.VN_util import *
-from VisNav.Common.VN_position_vector import PositionVector
-from VisNav.Common.VN_vehicle_control import veh_control
+from Common.VN_config import VN_config
+from Common.VN_util import *
+from Common.VN_position_vector import PositionVector
+from Common.VN_vehicle_control import veh_control
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude

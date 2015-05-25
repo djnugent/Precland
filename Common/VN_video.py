@@ -9,8 +9,8 @@ import cv2
 import numpy as np
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
-from VisNav.Common.VN_logger import VN_logger
+from Common.VN_config import VN_config
+from Common.VN_logger import VN_logger
 
 
 """

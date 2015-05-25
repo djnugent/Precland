@@ -5,12 +5,11 @@ import time
 from pymavlink import mavutil
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
-from VisNav.Common.VN_logger import VN_logger
+from Common.VN_config import VN_config
+from Common.VN_logger import VN_logger
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude
-
 
 
 
@@ -20,7 +19,7 @@ This class encapsulates the vehicle and some commonly used controls via the Dron
 
 '''
 TODO:
-At rally point support to get get_landing()
+    Add support to retrieve home, landing waypoints, and rally points for simulator
 '''
 
 
@@ -40,9 +39,12 @@ class VehicleControl(object):
         self.last_home = None
         self.home_update_rate = VN_config.get_float('vehicle control', 'home_update_rate', 10)
 
-
         self.last_set_velocity = 0
         self.vel_update_rate = VN_config.get_float('vehicle control', 'vel_update_rate', 0.1)
+
+        self.last_report_landing_target = 0
+        self.landing_update_rate = VN_config.get_float('vehicle control', 'landing_update_rate', 0.03)
+
 
 
     # connect - connects to droneAPI.
@@ -115,7 +117,27 @@ class VehicleControl(object):
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
 
-            VN_logger.text(VN_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
+            sc_logger.text(sc_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
+
+
+
+    # set_velocity - send nav_velocity command to vehicle to request it fly in specified direction
+    def report_landing_target(self, angle_x, angle_y, distance):
+        #only let commands through at 10hz
+        if(time.time() - self.last_report_landing_target) > self.landing_update_rate:
+            self.last_report_landing_target_ = time.time()
+            # create the LANDING TARGET message
+            msg = self.vehicle.message_factory.landing_target_encode(
+                                                         0,       # target ID (not used)
+                                                         mavutil.mavlink.MAV_FRAME_BODY_NED, # frame
+                                                         angle_x,   # Angular offset x axis
+                                                         angle_y,   # Angular offset y axis
+                                                         distance)  #Distance to target
+            # send command to vehicle
+            self.vehicle.send_mavlink(msg)
+            self.vehicle.flush()
+
+            VN_logger.text(VN_logger.AIRCRAFT, 'Sent AngX: {0}, AngY: {1}, Dist: {2}'.format(angle_x,angle_y,distance))
 
     #get_location - returns the lat, lon, alt of vehicle
     def get_location(self):
@@ -213,3 +235,4 @@ veh_control = VehicleControl()
 if __name__ == "__builtin__":
     veh_control.connect(local_connect())
     veh_control.test()
+

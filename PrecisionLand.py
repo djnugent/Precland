@@ -6,18 +6,18 @@ import cv2
 import Queue
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
-from VisNav.Common.VN_video import VN_video
-from VisNav.Common.VN_dispatcher import VN_dispatcher
-from VisNav.Common.VN_logger import VN_logger
-from VisNav.Common.VN_util import *
-from VisNav.Common.VN_position_vector import PositionVector
-from VisNav.Common.VN_vehicle_control import veh_control
+from Common.VN_config import VN_config
+from Common.VN_video import VN_video
+from Common.VN_dispatcher import VN_dispatcher
+from Common.VN_logger import VN_logger
+from Common.VN_util import *
+from Common.VN_position_vector import PositionVector
+from Common.VN_vehicle_control import veh_control
 
 #PRECISION LAND IMPORTS
-from VisNav.PrecisionLand.PL_gui import PrecisionLandGUI as gui
-from VisNav.PrecisionLand.PL_sim import sim
-from VisNav.PrecisionLand.CircleDetector import CircleDetector
+from PrecisionLand.PL_gui import PrecisionLandGUI as gui
+from PrecisionLand.PL_sim import sim
+from PrecisionLand.CircleDetector import CircleDetector
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude
@@ -31,16 +31,16 @@ Temporary Changes:
 
 '''
 TODO:
--Output angles from CircleDetector
 -update config file
+
 Future:
+-add parameter set over mavlink
 
 
 Improvements:
 -fix config file naming/loading(make it more intelligent)
 -add better target_detected logic(multiple frames required for a lock)
 -add update rate to VN_logger
--fix project file structure
 -fix Logging printing to console
 -handle droneapi start up better(location being null at start up-> issue using see inside_landing_area() RIGHT at startup)
 '''
@@ -114,7 +114,7 @@ class PrecisionLand(object):
 	 		#just because the program is running does not mean it controls the vehicle
 	 		#i.e. in the landing area but not in a landing mode
 	 		#FIXME add inside_landing_area() back to conditional
-			if self.always_run or (veh_control.get_mode() == "LAND") or (veh_control.get_mode() == "RTL"):
+			if (self.always_run) or (veh_control.get_mode() == "LAND") or (veh_control.get_mode() == "RTL"):
 
 		 		#update how often we dispatch a command
 		 		VN_dispatcher.calculate_dispatch_schedule()
@@ -133,8 +133,12 @@ class PrecisionLand(object):
 		 			sim.refresh_simulator(location,attitude)
 
 		 		# grab an image
+		 		frame = null
 				capStart = current_milli_time()
-				frame = self.get_frame()
+				if(self.simulator):
+					frame = sim.get_frame()
+				else:
+					frame = VN_video.get_image()
 				capStop = current_milli_time()
 
 				'''
@@ -184,8 +188,12 @@ class PrecisionLand(object):
 		 			VN_logger.text(VN_logger.AIRCRAFT,attitude)
 		 			VN_logger.text(VN_logger.AIRCRAFT,location)
 
+		 			#convert target location to angular radians
+		 			x_angle = results[1][0] * (horizontal-fov / camera_width) * (math.PI/180.0)
+		 			y_angle = results[1][1] * (vertical-fov / camera_height) * (math.PI/180.0)
+
 		 			#send commands to autopilot
-		 			self.report_to_autopilot(results)
+		 			veh_control.report_landing_target(x_angle, y_angle, results[2])
 
 		 	else:
 		 			VN_logger.text(VN_logger.GENERAL, 'Not in landing mode')
@@ -200,12 +208,6 @@ class PrecisionLand(object):
 	 		VN_video.stop_capture()
 
 
-	#get_frame - pull an image from camera or simulator
-	def get_frame(self):
-		if(self.simulator):
-			return sim.get_frame()
-		else:
-			return VN_video.get_image()
 
 
 # if starting from mavproxy

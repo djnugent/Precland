@@ -7,14 +7,14 @@ import cv2
 import time
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
+from Common.VN_config import VN_config
 
 #TODO allow images to be displayed over webserver and possibly print statements
 
 
 
 
-class VizNavLogger(object):
+class VisNavLogger(object):
 
 	#level enumerations: text
 	#general - logs/prints inforamtion about program activities(starting processes, camera failure, mode change, errors) 

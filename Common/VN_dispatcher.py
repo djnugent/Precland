@@ -5,8 +5,8 @@ import numpy as np
 import time
 
 #COMMOM IMPORTS
-from VisNav.Common.VN_config import VN_config
-from VisNav.Common.VN_logger import VN_logger
+from Common.VN_config import VN_config
+from Common.VN_logger import VN_logger
 
 
 '''
@@ -35,7 +35,7 @@ The first result of the tuple MUST BE an interal run time(in millis) of the func
 
 
 
-class VizNavDispatcher(object):
+class VisNavDispatcher(object):
 
 	def __init__(self):
 
