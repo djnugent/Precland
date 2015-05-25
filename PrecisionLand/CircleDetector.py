@@ -25,31 +25,31 @@ class CircleDetector(object):
 	def __init__(self):
 		#load algorithm constants
 		#how round a circle needs to be. Perfect circle = 1
-		self.eccentricity = sc_config.config.get_float('algorithm', 'eccentricity', 0.6)
+		self.eccentricity = VN_config.get_float('algorithm', 'eccentricity', 0.6)
 		#acceptable distance(pixels) between cocentric circle centers
-		self.distance_threshold = sc_config.config.get_integer('algorithm','distance_threshold', 15)
+		self.distance_threshold = VN_config.get_integer('algorithm','distance_threshold', 15)
 		# number of circles needed for a valid target(times 2); 2 circles are often overlayed
-		self.min_circles = sc_config.config.get_integer('algorithm','min_circles',5)
+		self.min_circles = VN_config.get_integer('algorithm','min_circls',5)
 		#pixels: used to identify repeat circles(stacked circles). Problem caused by findContours()
-		self.radius_tolerance = sc_config.config.get_integer('algorithm', 'radius_tolerance', 2)
+		self.radius_tolerance = VN_config.get_integer('algorithm', 'radius_tolerance', 2)
 		#Tolerance used in comparing actaul ratios and preceived ratios 
-		self.ratio_tolerance = sc_config.config.get_float('algorithm', 'ratio_tolerance', 0.015)
+		self.ratio_tolerance = VN_config.get_float('algorithm', 'ratio_tolerance', 0.015)
 
 
 		#target specific data
 		#target_code is the unique ratio between rings
 		target_code_def = np.array([0.8,0.91,0.76,0.84,0.7,0.66,0.49])
-		self.target_code = sc_config.config.get_array('algorithm', 'target_code',target_code_def)
+		self.target_code = VN_config.get_array('algorithm', 'target_code',target_code_def)
 		#the outer_ring is a scaling factor for targets of various sizes; radius of outer ring in meters
-		self.outer_ring = sc_config.config.get_float('algorithm', 'outer_ring', 0.08255)
+		self.outer_ring = VN_config.get_float('algorithm', 'outer_ring', 0.08255)
 
 		#define field of view
-		self.cam_hfov = sc_config.config.get_float('camera', 'horizontal-fov', 70.42)
-		self.cam_vfov = sc_config.config.get_float('camera', 'vertical-fov', 43.3)\
+		self.cam_hfov = VN_config.get_float('camera', 'horizontal-fov', 70.42)
+		self.cam_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)\
 
 		#define camera size
-		self.cam_width = sc_config.config.get_integer('camera', 'width', 640)
-		self.cam_height = sc_config.config.get_integer('camera', 'height', 480)
+		self.cam_width = VN_config.get_integer('camera', 'width', 640)
+		self.cam_height = VN_config.get_integer('camera', 'height', 480)
 
 
 	#analyze_frame - process an frame and look for a bullseye
