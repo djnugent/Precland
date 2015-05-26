@@ -128,13 +128,13 @@ class CircleDetector(object):
 						#unable to calculate distance due to invalid data
 						else: 
 							stop = current_milli_time()
-							child_conn.send(( stop-start, center, -1, self.finalTarget))
+							child_conn.send(( stop-start, center, 0, self.finalTarget))
 							return
 
 
 		#unable to locate target
 		stop = current_milli_time()
-		child_conn.send((stop-start,None,-1,None))
+		child_conn.send((stop-start,None,0,None))
 		return
 
 	#distCenters - distance between two ellipses

@@ -43,7 +43,7 @@ class VehicleControl(object):
         self.vel_update_rate = VN_config.get_float('vehicle control', 'vel_update_rate', 0.1)
 
         self.last_report_landing_target = 0
-        self.landing_update_rate = VN_config.get_float('vehicle control', 'landing_update_rate', 0.03)
+        self.landing_update_rate = VN_config.get_float('vehicle control', 'landing_update_rate', 0.1)
 
 
 
@@ -99,7 +99,7 @@ class VehicleControl(object):
         self.vehicle.flush()
 
     # set_velocity - send nav_velocity command to vehicle to request it fly in specified direction
-    def set_velocity(self, velocity_x, velocity_y, velocity_z):
+    def set_velocity(self, angle_x, angle_y, distance):
         #only let commands through at 10hz
         if(time.time() - self.last_set_velocity) > self.vel_update_rate:
             self.last_set_velocity = time.time()
@@ -113,17 +113,18 @@ class VehicleControl(object):
                                                          velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
                                                          0, 0, 0, # x, y, z acceleration (not used)
                                                          0, 0)    # yaw, yaw_rate (not used)
+            
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
 
-            sc_logger.text(sc_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
+            VN_logger.text(VN_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
 
 
 
-    # set_velocity - send nav_velocity command to vehicle to request it fly in specified direction
+    # report_landing_target - send LANDING_TARGET command to vehicle to shift landing location
     def report_landing_target(self, angle_x, angle_y, distance):
-        #only let commands through at 10hz
+        #only let commands through at 33hz
         if(time.time() - self.last_report_landing_target) > self.landing_update_rate:
             self.last_report_landing_target_ = time.time()
             # create the LANDING TARGET message
@@ -136,29 +137,8 @@ class VehicleControl(object):
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
-
             VN_logger.text(VN_logger.AIRCRAFT, 'Sent AngX: {0}, AngY: {1}, Dist: {2}'.format(angle_x,angle_y,distance))
 
-
-    def send_landing_target(self, angle_x, angle_y, distance):
-        #only let commands through at 10hz
-        if(time.time() - self.last_set_velocity) > self.vel_update_rate:
-            self.last_set_velocity = time.time()
-            # create the SET_POSITION_TARGET_LOCAL_NED command
-            msg = self.vehicle.message_factory.set_position_target_local_ned_encode(
-                                                         0,       # time_boot_ms (not used)
-                                                         0, 0,    # target system, target component
-                                                         mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
-                                                         0x01C7,  # type_mask (ignore pos | ignore acc)
-                                                         0, 0, 0, # x, y, z positions (not used)
-                                                         velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
-                                                         0, 0, 0, # x, y, z acceleration (not used)
-                                                         0, 0)    # yaw, yaw_rate (not used)
-            # send command to vehicle
-            self.vehicle.send_mavlink(msg)
-            self.vehicle.flush()
-
-            VN_logger.text(VN_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
 
 
     #get_location - returns the lat, lon, alt of vehicle

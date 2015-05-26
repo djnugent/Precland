@@ -7,7 +7,7 @@ import time
 #COMMOM IMPORTS
 from Common.VN_config import VN_config
 from Common.VN_logger import VN_logger
-
+from Common.VN_util import *
 
 '''
 VisNavDispatcher
@@ -134,7 +134,7 @@ class VisNavDispatcher(object):
 			actualRunTime = current_milli_time() - self.lastRetreival
 			self.lastRetreival = current_milli_time()
 
-			sc_logger.text(sc_logger.PERFORMANCE, "DispatchHz: {0} runHz: {1} ProcessHz: {2} CaptureHz: {3} Processes: {4} ".format(round(1000.0/(self.runTime)), round(1000.0/actualRunTime), round((1000.0/results[0])),round(1000.0/self.captureTime), len(multiprocessing.active_children())))
+			VN_logger.text(VN_logger.PERFORMANCE, "DispatchHz: {0} runHz: {1} ProcessHz: {2} CaptureHz: {3} Processes: {4} ".format(round(1000.0/(self.runTime)), round(1000.0/actualRunTime), round((1000.0/results[0])),round(1000.0/self.captureTime), len(multiprocessing.active_children())))
 			return results
 
 		return None

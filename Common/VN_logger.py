@@ -185,7 +185,7 @@ class VisNavLogger(object):
 		fh = logging.FileHandler(filename)
 		fh.setLevel(logging.INFO)
 		# create a formatter and set the formatter for the handler.
-		frmt = logging.Formatter('%(aVNtime)s - %(type)s - %(message)s')
+		frmt = logging.Formatter('%(asctime)s - %(type)s - %(message)s')
 		fh.setFormatter(frmt)
 		# add the Handler to the logger
 		self.logger.addHandler(fh)

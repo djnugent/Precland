@@ -15,9 +15,9 @@ from Common.VN_position_vector import PositionVector
 from Common.VN_vehicle_control import veh_control
 
 #PRECISION LAND IMPORTS
-from PrecisionLand.PL_gui import PrecisionLandGUI as gui
-from PrecisionLand.PL_sim import sim
-from PrecisionLand.CircleDetector import CircleDetector
+from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
+from PrecisionLand_lib.PL_sim import sim
+from PrecisionLand_lib.CircleDetector import CircleDetector
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude
@@ -133,7 +133,7 @@ class PrecisionLand(object):
 		 			sim.refresh_simulator(location,attitude)
 
 		 		# grab an image
-		 		frame = null
+		 		frame = None
 				capStart = current_milli_time()
 				if(self.simulator):
 					frame = sim.get_frame()
@@ -184,16 +184,18 @@ class PrecisionLand(object):
 		 			VN_logger.image(VN_logger.GUI, rend_Image)
 
 		 			#display/log data
-		 			VN_logger.text(VN_logger.ALGORITHM,'RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[0],results[1],results[2],results[3]))
-		 			VN_logger.text(VN_logger.AIRCRAFT,attitude)
-		 			VN_logger.text(VN_logger.AIRCRAFT,location)
+		 			#VN_logger.text(VN_logger.ALGORITHM,'RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[0],results[1],results[2],results[3]))
 
-		 			#convert target location to angular radians
-		 			x_angle = results[1][0] * (horizontal-fov / camera_width) * (math.PI/180.0)
-		 			y_angle = results[1][1] * (vertical-fov / camera_height) * (math.PI/180.0)
+		 			#send results if we found the landing pad
+		 			if(results[1] is not None):
+		 				#convert target location to angular radians
+			 			x_angle = results[1][0] * (self.camera_hfov / self.camera_width) * (math.pi/180.0)
+			 			y_angle = results[1][1] * (self.camera_vfov / self.camera_height) * (math.pi/180.0)
 
-		 			#send commands to autopilot
-		 			veh_control.report_landing_target(x_angle, y_angle, results[2])
+			 			#send commands to autopilot
+			 			veh_control.report_landing_target(x_angle, y_angle, results[2])
+			 			#veh_control.set_yaw(90) #DEBUG
+			 			#veh_control.set_velocity(1,0,0) #DEBUG
 
 		 	else:
 		 			VN_logger.text(VN_logger.GENERAL, 'Not in landing mode')
