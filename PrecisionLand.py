@@ -104,6 +104,10 @@ class PrecisionLand(object):
 
 	 	while veh_control.is_connected():
 
+	 		veh_control.report_landing_target(1,1,1)
+
+	 		cv2.waitKey(3)
+
 	 		'''
 	 		#kill camera for testing
 	 		if(cv2.waitKey(2) == 1113938):
@@ -193,7 +197,7 @@ class PrecisionLand(object):
 			 			y_angle = results[1][1] * (self.camera_vfov / self.camera_height) * (math.pi/180.0)
 
 			 			#send commands to autopilot
-			 			veh_control.report_landing_target(x_angle, y_angle, results[2])
+			 			#veh_control.report_landing_target(x_angle, y_angle, results[2])
 			 			#veh_control.set_yaw(90) #DEBUG
 			 			#veh_control.set_velocity(1,0,0) #DEBUG
 

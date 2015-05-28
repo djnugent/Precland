@@ -99,7 +99,7 @@ class VehicleControl(object):
         self.vehicle.flush()
 
     # set_velocity - send nav_velocity command to vehicle to request it fly in specified direction
-    def set_velocity(self, angle_x, angle_y, distance):
+    def set_velocity(self, velocity_x, velocity_y, velocity_z):
         #only let commands through at 10hz
         if(time.time() - self.last_set_velocity) > self.vel_update_rate:
             self.last_set_velocity = time.time()
@@ -117,7 +117,6 @@ class VehicleControl(object):
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
-
             VN_logger.text(VN_logger.AIRCRAFT, 'Sent Vx: {0}, Vy: {1}, Vz: {2}'.format(velocity_x,velocity_y,velocity_z))
 
 
@@ -129,8 +128,9 @@ class VehicleControl(object):
             self.last_report_landing_target_ = time.time()
             # create the LANDING TARGET message
             msg = self.vehicle.message_factory.landing_target_encode(
-                                                         0,       # target ID (not used)
-                                                         mavutil.mavlink.MAV_FRAME_BODY_NED, # frame
+                                                         0,       # landing target number (not used)
+                                                         0, 0,    # target system, target component
+                                                         8, # frame
                                                          angle_x,   # Angular offset x axis
                                                          angle_y,   # Angular offset y axis
                                                          distance)  #Distance to target
