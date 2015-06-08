@@ -43,7 +43,7 @@ class VehicleControl(object):
         self.vel_update_rate = VN_config.get_float('vehicle control', 'vel_update_rate', 0.1)
 
         self.last_report_landing_target = 0
-        self.landing_update_rate = VN_config.get_float('vehicle control', 'landing_update_rate', 0.1)
+        self.landing_update_rate = VN_config.get_float('vehicle control', 'landing_update_rate', 0.02)
 
 
 
@@ -129,7 +129,6 @@ class VehicleControl(object):
             # create the LANDING TARGET message
             msg = self.vehicle.message_factory.landing_target_encode(
                                                          0,       # landing target number (not used)
-                                                         0, 0,    # target system, target component
                                                          8, # frame
                                                          angle_x,   # Angular offset x axis
                                                          angle_y,   # Angular offset y axis

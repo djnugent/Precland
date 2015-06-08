@@ -46,7 +46,7 @@ class VisNavDispatcher(object):
 		available_cores = min(desired_cores, multiprocessing.cpu_count())
 		#check if a core is already in use for background image capture
 		cores_image_capture = int(VN_config.get_boolean('processing','background_capture', True))
-		self.cores_processing = available_cores - cores_image_capture
+		self.cores_processing = max(available_cores - cores_image_capture,1)
 
 
 		#The time(in millis) is takes to capture an Image
