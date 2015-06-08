@@ -43,11 +43,11 @@ Visual Navigation for ArduPilot
 	`$ param set ARMING_CHECK 0`  
   
 *  Kill SITL:  
-	*press: ctrl-c*  
+	*Press ctrl-c*  
   
   
   
-## Run PrecisionLand: ##  
+## Run PrecisionLand: 
 *  Navigate to ardupilot/ArduCopter:  
 	`$ cd /ardupilot/ArduCopter`  
   
@@ -67,4 +67,4 @@ Visual Navigation for ArduPilot
 	`MAV> api start /home/<your_username>/visnav/PrecisionLand.py`  
   
 *  Kill SITL:  
-	*Press: ctrl-c*
+	*Press ctrl-c*
