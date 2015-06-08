@@ -2,12 +2,12 @@
 Visual Navigation for ArduPilot
 
 Preqs:
-	-Mavproxy
-	-dronekit
+-Mavproxy
+-dronekit
 
 Setup:
 1. Navigate to your home directory
-cd 
+cd
 
 2. Download my fork of ardupilot
 git clone https://github.com/djnugent/ardupilot
