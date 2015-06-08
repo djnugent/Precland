@@ -29,7 +29,7 @@ Visual Navigation for ArduPilot
   
 *  Add sim_vehicle.sh to your path:  
 	`$ sudo nano ~/.bashrc`  
-	**ADD THE FOLLOWING TO THE END OF THE FILE:  
+	** ADD THE FOLLOWING TO THE END OF THE FILE:  
 		`export PATH=$PATH:$HOME/ardupilot/Tools/autotest`  
 		*Use ctrl-x to exit and save the file*  
   
