@@ -1,11 +1,11 @@
 # VisNav  
 Visual Navigation for ArduPilot  
   
-## Preqs ##  
+## Preqs  
 * Mavproxy  
 * DroneKit  
   
-## Setup ##  
+## Setup 
 * Navigate to your home directory:  
 	`$ cd`  
   
