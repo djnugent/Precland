@@ -39,7 +39,7 @@ class PrecisionLandSimulator():
 
 
 		#load target
-		filename = VN_config.get_string('simulator', 'target_location', '/home/daniel/visnav/target.jpg')
+		filename = VN_config.get_string('simulator', 'target_location', '../../visnav/target.jpg')
 		target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
 		self.load_target(filename,target_size)
 

@@ -190,7 +190,7 @@ class PrecisionLand(object):
 		 			if(results[1] is not None):
 		 				#shift origin to center of the image
 		 				x_pixel = results[1][0] - (self.camera_width/2.0)
-		 				y_pixel = results[1][1] - (self.camera_height/2.0)
+		 				y_pixel = results[1][1] - (self.camera_height/2.0) #y-axis is inverted??? Works with arducopter 
 
 		 				#convert target location to angular radians
 			 			x_angle = x_pixel * (self.camera_hfov / self.camera_width) * (math.pi/180.0)

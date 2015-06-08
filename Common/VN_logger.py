@@ -39,7 +39,7 @@ class VisNavLogger(object):
 
 	def __init__(self):
 		#create sub driectory for logs and videos
-		self.location = VN_config.get_string('logging','location','./')
+		self.location = VN_config.get_string('logging','location','../../visnav/')
 
 		path = self.location + 'logs'
 		if not os.path.exists(path):
