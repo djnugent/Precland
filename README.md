@@ -47,7 +47,7 @@ Visual Navigation for ArduPilot
   
   
   
-## Run PrecisionLand: 
+## Run Precision land with SITL: 
 *  Navigate to ardupilot/ArduCopter:  
 	`$ cd /ardupilot/ArduCopter`  
   
