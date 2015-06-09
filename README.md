@@ -33,7 +33,7 @@ Visual Navigation for ArduPilot
 		`export PATH=$PATH:$HOME/ardupilot/Tools/autotest`  
 		*Use ctrl-x to exit and save the file*  
 
-*  Have Dronekit load on startup:
+*  Have Dronekit load on startup:  
 	'$ echo "module load droneapi.module.api" >> ~/.mavinit.scr'   
 
 *  Navigate to ardupilot/ArduCopter:  
