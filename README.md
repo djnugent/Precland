@@ -34,7 +34,7 @@ Visual Navigation for ArduPilot
 		*Use ctrl-x to exit and save the file*  
 
 *  Have Dronekit load on startup:  
-	'$ echo "module load droneapi.module.api" >> ~/.mavinit.scr'   
+	`$ echo "module load droneapi.module.api" >> ~/.mavinit.scr`   
 
 *  Navigate to ardupilot/ArduCopter:  
 	`$ cd /ardupilot/ArduCopter`  
