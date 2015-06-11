@@ -71,3 +71,14 @@ Visual Navigation for ArduPilot
   
 *  Kill SITL:  
 	*Press ctrl-c*
+  
+
+
+## See my progress  
+*  http://diydrones.com/profiles/blogs/precision-land-arducopter-demo  
+*  http://diydrones.com/profiles/blogs/precision-land-arducopter
+  
+
+
+## Related projects
+*  http://irlock.com/
