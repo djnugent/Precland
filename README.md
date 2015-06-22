@@ -39,7 +39,7 @@ Visual Navigation for ArduPilot
 		`export PYTHONPATH=$PYHTONPATH:$HOME/visnav/PrecisionLand_lib`<br />
 		*Use ctrl-x to exit and save the file*  
   
-*  Re-run .bashrc / Reload PATH variables
+*  Re-run .bashrc / Reload PATH variables:  
 	`$ . ~/.bashrc`  
 
 *  Have Dronekit load on startup:  
