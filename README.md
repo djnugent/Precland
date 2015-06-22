@@ -27,12 +27,23 @@ Visual Navigation for ArduPilot
 *  Install pymavlink:  
 	`$ sudo python install setup.py`  
   
-*  Add sim_vehicle.sh to your path:  
+*  Add sim_vehicle.sh and PrecisionLand to your path:  
 	`$ sudo nano ~/.bashrc`  
-	ADD THE FOLLOWING TO THE END OF THE FILE:  
-		`export PATH=$PATH:$HOME/ardupilot/Tools/autotest`  
+	ADD THE FOLLOWING TO THE END OF THE FILE:
+		```  
+		export PATH=$PATH:$HOME/ardupilot/Tools/autotest
+		export PATH=$PATH:$HOME/visnav
+		export PATH=$PATH:$HOME/visnav/Common
+		export PATH=$PATH:$HOME/visnav/PrecisionLand_lib
+		export PYTHONPATH=$PYTHONPATH:$HOME/visnav
+		export PYTHONPATH=$PYTHONPATH:$HOME/visnav/Common
+		export PYTHONPATH=$PYHTONPATH:$HOME/visnav/PrecisionLand_lib
+		```  
 		*Use ctrl-x to exit and save the file*  
-
+  
+*  Re-run .bashrc / Reload PATH variables
+	`$ . ~/.bashrc  
+	
 *  Have Dronekit load on startup:  
 	`$ echo "module load droneapi.module.api" >> ~/.mavinit.scr`   
 
