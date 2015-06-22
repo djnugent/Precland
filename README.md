@@ -29,16 +29,14 @@ Visual Navigation for ArduPilot
   
 *  Add sim_vehicle.sh and PrecisionLand to your path:  
 	`$ sudo nano ~/.bashrc`  
-	ADD THE FOLLOWING TO THE END OF THE FILE:  
-	    ```  
-		export PATH=$PATH:$HOME/ardupilot/Tools/autotest  
-		export PATH=$PATH:$HOME/visnav  
-		export PATH=$PATH:$HOME/visnav/Common  
-		export PATH=$PATH:$HOME/visnav/PrecisionLand_lib  
-		export PYTHONPATH=$PYTHONPATH:$HOME/visnav  
-		export PYTHONPATH=$PYTHONPATH:$HOME/visnav/Common  
-		export PYTHONPATH=$PYHTONPATH:$HOME/visnav/PrecisionLand_lib  
-		```  
+	ADD THE FOLLOWING TO THE END OF THE FILE:
+		`export PATH=$PATH:$HOME/ardupilot/Tools/autotest`
+		`export PATH=$PATH:$HOME/visnav`
+		`export PATH=$PATH:$HOME/visnav/Common`
+		`export PATH=$PATH:$HOME/visnav/PrecisionLand_lib`
+		`export PYTHONPATH=$PYTHONPATH:$HOME/visnav`
+		`export PYTHONPATH=$PYTHONPATH:$HOME/visnav/Common`
+		`export PYTHONPATH=$PYHTONPATH:$HOME/visnav/PrecisionLand_lib`  
 		*Use ctrl-x to exit and save the file*  
   
 *  Re-run .bashrc / Reload PATH variables
