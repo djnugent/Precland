@@ -40,7 +40,7 @@ Visual Navigation for ArduPilot
 		*Use ctrl-x to exit and save the file*  
   
 *  Re-run .bashrc / Reload PATH variables
-	`$ . ~/.bashrc  
+	`$ . ~/.bashrc`  
 
 *  Have Dronekit load on startup:  
 	`$ echo "module load droneapi.module.api" >> ~/.mavinit.scr`   
