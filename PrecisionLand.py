@@ -60,8 +60,10 @@ class PrecisionLand(object):
 		self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72.42)
 		self.camera_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)
 
-		#use simulator
-		self.simulator = VN_config.get_boolean('simulator','use_simulator',True)
+		#simulator
+		self.simulator = VN_config.get_boolean('simulator','use_simulator',False)
+		self.target_file = VN_config.get_string('simulator', 'target_location', '/visnav/target.jpg')
+		self.target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
 
 		#Run the program no matter what mode or location; Useful for debug purposes
 		self.always_run = VN_config.get_boolean('general', 'always_run', True)
@@ -88,6 +90,7 @@ class PrecisionLand(object):
 		#start a video capture
 		if(self.simulator):
 			VN_logger.text(VN_logger.GENERAL, 'Using simulator')
+			sim.load_target(self.target_file, self.target_size)
 			sim.set_target_location(veh_control.get_home())
 			#sim.set_target_location(Location(0,0,0))
 
@@ -100,6 +103,10 @@ class PrecisionLand(object):
 
 		#create a queue for images
 		imageQueue = Queue.Queue()
+
+		#initilize autopilot variables
+		location = Location(0,0,0)
+		attitude = Attitude(0,0,0)
 
 
 	 	while veh_control.is_connected():
@@ -119,11 +126,6 @@ class PrecisionLand(object):
 		 		#update how often we dispatch a command
 		 		VN_dispatcher.calculate_dispatch_schedule()
 
-		 		'''
-		 		#get info from autopilot
-		 		location = Location(0.000009,0,location.alt)
-		 		attitude = Attitude(0,0,0)
-		 		'''
 
 		 		#update simulator
 		 		if(self.simulator):
@@ -197,7 +199,7 @@ class PrecisionLand(object):
 			 			y_angle = y_pixel * (self.camera_vfov / self.camera_height) * (math.pi/180.0)
 
 			 			#send commands to autopilot
-			 			veh_control.report_landing_target(x_angle, y_angle, results[2])
+			 			veh_control.report_landing_target(x_angle, y_angle, results[2],0,0)
 			 			
 
 		 	else:

@@ -39,7 +39,7 @@ class VisNavLogger(object):
 
 	def __init__(self):
 		#create sub driectory for logs and videos
-		self.location = VN_config.get_string('logging','location','../../visnav/')
+		self.location = VN_config.get_string('logging','location','~/visnav/')
 
 		path = self.location + 'logs'
 		if not os.path.exists(path):
@@ -68,7 +68,7 @@ class VisNavLogger(object):
 		#levels = 'frame' , 'gui'
 		#multiple message levels can be selected at once by concatination strings i.e. 'frame, gui' 
 		#what type of images we display on the screen
-		self.display_level = VN_config.get_string('logging', 'display_level', 'raw, gui')
+		self.display_level = VN_config.get_string('logging', 'display_level', '')#'raw, gui')
 		#what type of images we record
 		self.record_level = VN_config.get_string('logging', 'record_level', 'raw')
 

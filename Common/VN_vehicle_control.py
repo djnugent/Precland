@@ -122,17 +122,20 @@ class VehicleControl(object):
 
 
     # report_landing_target - send LANDING_TARGET command to vehicle to shift landing location
-    def report_landing_target(self, angle_x, angle_y, distance):
+    def report_landing_target(self, angle_x, angle_y, distance,size_x,size_y):
         #only let commands through at 33hz
         if(time.time() - self.last_report_landing_target) > self.landing_update_rate:
             self.last_report_landing_target_ = time.time()
             # create the LANDING TARGET message
             msg = self.vehicle.message_factory.landing_target_encode(
-                                                         0,       # landing target number (not used)
-                                                         8, # frame
+							 0,         # time(unused)
+                                                         0,         # landing target number (not used)
+                                                         8,         # frame
                                                          angle_x,   # Angular offset x axis
                                                          angle_y,   # Angular offset y axis
-                                                         distance)  #Distance to target
+                                                         distance,  # Distance to target
+							 size_x,    # unused
+							 size_y)    # unused
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()

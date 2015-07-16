@@ -32,17 +32,12 @@ class PrecisionLandSimulator():
 
 
 	def __init__(self):
+
+		
 		self.targetLocation = PositionVector()
 		self.vehicleLocation = PositionVector()
 
 		self.backgroundColor = (74,88,109)
-
-
-		#load target
-		filename = VN_config.get_string('simulator', 'target_location', '../../visnav/target.jpg')
-		target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
-		self.load_target(filename,target_size)
-
 
 		#define camera
 		self.camera_width = VN_config.get_integer('camera', 'width', 640)
