@@ -4,6 +4,7 @@ import math
 import time
 import cv2
 import Queue
+import os
 
 #COMMOM IMPORTS
 from Common.VN_config import VN_config
@@ -61,8 +62,8 @@ class PrecisionLand(object):
 		self.camera_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)
 
 		#simulator
-		self.simulator = VN_config.get_boolean('simulator','use_simulator',False)
-		self.target_file = VN_config.get_string('simulator', 'target_location', '/visnav/target.jpg')
+		self.simulator = VN_config.get_boolean('simulator','use_simulator',True)
+		self.target_file = VN_config.get_string('simulator', 'target_location', os.environ['HOME'] + '/visnav/target.jpg')
 		self.target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
 
 		#Run the program no matter what mode or location; Useful for debug purposes
@@ -91,7 +92,7 @@ class PrecisionLand(object):
 		if(self.simulator):
 			VN_logger.text(VN_logger.GENERAL, 'Using simulator')
 			sim.load_target(self.target_file, self.target_size)
-			sim.set_target_location(veh_control.get_home())
+			sim.set_target_location(veh_control.get_home(True))
 			#sim.set_target_location(Location(0,0,0))
 
 		else:

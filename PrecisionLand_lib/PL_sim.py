@@ -1,9 +1,11 @@
 #!/usr/bin/python
 #SYSTEM IMPORTS
+import sys
 import math
 import time
 import cv2
 import numpy as np
+
 
 
 #COMMOM IMPORTS
@@ -50,6 +52,9 @@ class PrecisionLandSimulator():
 	#load_target- load an image to simulate the target. Enter the actaul target size in meters(assuming the target is square)
 	def load_target(self,filename, actualSize):
 		self.target = cv2.imread(filename)
+		if self.target is None:
+				print "Unable to load target image!!!!!!!!!!!!\nExiting PrecisionLand.py"
+				sys.exit(0)
 		self.target_width = self.target.shape[1]
 		self.target_height = self.target.shape[0]
 
