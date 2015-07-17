@@ -127,10 +127,14 @@ class VisNavLogger(object):
 
 	#open_video_writer- opens a video writer with a filename that starts the tag. The rest of the file name is date-time
 	def open_video_writer(self, tag):
+
 		#define filename
-		path = self.location + 'vids/{0}-{1}-%Y-%m-%d-%H-%M.avi'
-		filename = time.strftime(path.format(self.strat_name, tag))
-		
+		file_index = 0
+		filename = self.location + 'vids/{0}-{1}-{2}.avi'.format(self.strat_name, tag,file_index)
+		while os.path.exists(filename):
+			file_index = file_index + 1
+			filename = self.location + 'vids/{0}-{1}-{2}.avi'.format(self.strat_name, tag,file_index)
+
 
 		# Define the codec and create VideoWriter object
 		# Note: setting ex to -1 will display pop-up requesting user choose the encoder
@@ -178,10 +182,15 @@ class VisNavLogger(object):
 		self.logger = logging.getLogger('VN_logger')
 		self.logger.setLevel(logging.INFO)
 
-		# add a file handler
+		
 		#define filename
-		path = self.location + 'logs/{0}-%Y-%m-%d-%H-%M.log'
-		filename = time.strftime(path.format(self.strat_name))
+		file_index = 0
+		filename = self.location + 'logs/{0}-{1}.log'.format(self.strat_name,file_index)
+		while os.path.exists(filename):
+			file_index = file_index + 1
+			filename = self.location + 'logs/{0}-{1}.log'.format(self.strat_name,file_index)
+
+		# add a file handler
 		fh = logging.FileHandler(filename)
 		fh.setLevel(logging.INFO)
 		# create a formatter and set the formatter for the handler.
