@@ -11,6 +11,7 @@ import numpy as np
 #COMMOM IMPORTS
 from Common.VN_config import VN_config
 from Common.VN_logger import VN_logger
+from Common.Flow_Camera import flow_cam
 
 
 """
@@ -22,12 +23,13 @@ Image size is held in the smart_camera.cnf
 """
 
 
-class VizNavVideo:
+class VisNavVideo:
 
     def __init__(self):
 
         # get which camera we will use
         self.camera_index = VN_config.get_integer('camera','index',0)
+
 
         # get image resolution
         self.img_width = VN_config.get_integer('camera','width',640)
@@ -85,11 +87,13 @@ class VizNavVideo:
     def get_camera(self,index):
         VN_logger.text(VN_logger.GENERAL, 'Starting Camera....')
 
-
         # setup video capture
-        self.camera = cv2.VideoCapture(index)
-        self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
-        self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
+        if(self.camera_index == 45): #PX4flow sensor
+            self.camera = flow_cam
+        else: #generic video capture device
+            self.camera = cv2.VideoCapture(index)
+            self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
+            self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
 
         # check we can connect to camera
         if not self.camera.isOpened():
@@ -192,7 +196,7 @@ class VizNavVideo:
         #use standard image cap
         else:
             #Grab an image
-            success_flag, img= self.camera.read()
+            success_flag, img = self.camera.read()
 
         # return image to caller
         return img
@@ -248,7 +252,7 @@ class VizNavVideo:
         print "p2a 10 = %f" % self.pixels_to_angle_x(10)
 
 # create a single global object
-VN_video = VizNavVideo()
+VN_video = VisNavVideo()
 
 if __name__ == "__main__":
     VN_video.main()

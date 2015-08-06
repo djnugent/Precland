@@ -37,6 +37,8 @@ class PrecisionLandGUI(object):
 	def add_target_highlights(self, image, target):
 		#create a shallow copy of image
 		img = copy(image)
+		if(len(img.shape) < 3):
+			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
 		
 		if target is not None:
 			for i in range(0,len(target)):

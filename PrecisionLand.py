@@ -5,6 +5,14 @@ import time
 import cv2
 import Queue
 import os
+import inspect
+import sys
+import numpy as np
+from copy import copy
+
+#Add script directory to path
+script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+sys.path.append(script_dir)
 
 #COMMOM IMPORTS
 from Common.VN_config import VN_config
@@ -72,7 +80,7 @@ class PrecisionLand(object):
 		#how many frames have been captured
 		self.frame_count = 0
 
-		#debugging: 
+		#debugging:
 		self.kill_camera = False
 
 	def name(self):
@@ -145,14 +153,33 @@ class PrecisionLand(object):
 				capStop = current_milli_time()
 
 				'''
+				ret,thresh = cv2.threshold(frame,32,255,cv2.THRESH_BINARY)
+				cv2.imshow("thresh", thresh)
+				cv2.waitKey(1)
+				kernel = np.ones((5,5),np.uint8)
+				erode = cv2.dilate(frame,kernel)
+				cv2.imshow("erode", erode)
+				cv2.waitKey(1)
+
+
+				#debug
+				edges = cv2.Canny(erode,100,200,3)
+
+				contours, hierarchy = cv2.findContours(edges,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+				img = copy(frame)
+				cv2.drawContours(img,contours,-1,(0,255,0),3)
+				cv2.imshow("cont", img)
+				cv2.waitKey(1)
+				'''
+				'''
 				if(self.kill_camera):
 					frame[:] = (0,255,0)
 				'''
-		 		
+
 		 		#update capture time
 		 		VN_dispatcher.update_capture_time(capStop-capStart)
 
-		 		
+
 				#Process image
 				#We schedule the process as opposed to waiting for an available core
 				#This brings consistancy and prevents overwriting a dead process before
@@ -163,7 +190,7 @@ class PrecisionLand(object):
 
 					#the function must be run directly from the class
 					VN_dispatcher.dispatch(target=detector.analyze_frame, args=(frame,attitude,))
-	 			
+
 
 
 		 		#retreive results
@@ -187,13 +214,13 @@ class PrecisionLand(object):
 		 			VN_logger.image(VN_logger.GUI, rend_Image)
 
 		 			#display/log data
-		 			#VN_logger.text(VN_logger.ALGORITHM,'RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[0],results[1],results[2],results[3]))
+		 			VN_logger.text(VN_logger.ALGORITHM,'RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[0],results[1],results[2],results[3]))
 
 		 			#send results if we found the landing pad
 		 			if(results[1] is not None):
 		 				#shift origin to center of the image
 		 				x_pixel = results[1][0] - (self.camera_width/2.0)
-		 				y_pixel = results[1][1] - (self.camera_height/2.0) #y-axis is inverted??? Works with arducopter 
+		 				y_pixel = results[1][1] - (self.camera_height/2.0) #y-axis is inverted??? Works with arducopter
 
 		 				#convert target location to angular radians
 			 			x_angle = x_pixel * (self.camera_hfov / self.camera_width) * (math.pi/180.0)
@@ -201,11 +228,11 @@ class PrecisionLand(object):
 
 			 			#send commands to autopilot
 			 			veh_control.report_landing_target(x_angle, y_angle, results[2],0,0)
-			 			
+
 
 		 	else:
 		 			VN_logger.text(VN_logger.GENERAL, 'Not in landing mode')
-		 			
+
 
 
 
@@ -230,11 +257,3 @@ if __name__ == "__builtin__":
 
 	# run strategy
 	strat.run()
-
-
-
-
-
-
-
-

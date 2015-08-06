@@ -31,12 +31,7 @@ Visual Navigation for ArduPilot
 	`$ sudo nano ~/.bashrc`  
 	ADD THE FOLLOWING TO THE END OF THE FILE: <br />
 		`export PATH=$PATH:$HOME/ardupilot/Tools/autotest`<br />
-		`export PATH=$PATH:$HOME/visnav`<br />
-		`export PATH=$PATH:$HOME/visnav/Common`<br />
-		`export PATH=$PATH:$HOME/visnav/PrecisionLand_lib`<br />
 		`export PYTHONPATH=$PYTHONPATH:$HOME/visnav`<br />
-		`export PYTHONPATH=$PYTHONPATH:$HOME/visnav/Common`<br />
-		`export PYTHONPATH=$PYHTONPATH:$HOME/visnav/PrecisionLand_lib`<br />
 		*Use ctrl-x to exit and save the file*  
   
 *  Re-run .bashrc / Reload PATH variables:  

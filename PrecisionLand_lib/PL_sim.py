@@ -200,6 +200,7 @@ class PrecisionLandSimulator():
 		#simulate framerate
 		while(1000/self.camera_frameRate > current_milli_time() - start):
 			pass
+		sim = cv2.cvtColor(sim, cv2.COLOR_BGR2GRAY)
 		return sim
 	
 

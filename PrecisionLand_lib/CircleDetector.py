@@ -12,8 +12,6 @@ from Common.VN_util import *
 
 '''
 TODO:
-make ECCENTRICITY dependent on craftAttitude
-Clean up code 
 Improve calcDistToTarget method
 '''
 
@@ -32,7 +30,7 @@ class CircleDetector(object):
 		self.min_circles = VN_config.get_integer('algorithm','min_circls',5)
 		#pixels: used to identify repeat circles(stacked circles). Problem caused by findContours()
 		self.radius_tolerance = VN_config.get_integer('algorithm', 'radius_tolerance', 2)
-		#Tolerance used in comparing actaul ratios and preceived ratios 
+		#Tolerance used in comparing actaul ratios and preceived ratios
 		self.ratio_tolerance = VN_config.get_float('algorithm', 'ratio_tolerance', 0.015)
 
 
@@ -45,7 +43,7 @@ class CircleDetector(object):
 
 		#define field of view
 		self.cam_hfov = VN_config.get_float('camera', 'horizontal-fov', 70.42)
-		self.cam_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)\
+		self.cam_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)
 
 		#define camera size
 		self.cam_width = VN_config.get_integer('camera', 'width', 640)
@@ -67,13 +65,23 @@ class CircleDetector(object):
 
 		#blur image and grayscale
 		#img = cv2.medianBlur(img,5)
+		cimg = None
+		#check for an already gray image
+		if(len(img.shape)<3):
+			cimg = img
+		else:
+			#grayscale image
+			cimg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-		#grayscale image
-		cimg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
+		#threshold
+		ret,thresh = cv2.threshold(cimg,32,255,cv2.THRESH_BINARY)
+		#dilate
+		kernel = np.ones((5,5),np.uint8)
+		dil = cv2.dilate(thresh, kernel)
 
 		#canny edge detector
-		edges = cv2.Canny(cimg,100,200,3)
+		edges = cv2.Canny(dil,100,200,3)
 
 		if edges is not None:
 
@@ -83,7 +91,7 @@ class CircleDetector(object):
 			#turn contours into ellipses
 			circles = np.empty((len(contours)),object)
 			circlesCnt = 0
-			for i in range(0,len(contours)):
+			for i in xrange(0,len(contours)):
 				contour = contours[i]
 				#make sure contour contains enough point for an ellipse
 				if(len(contour) > 4):
@@ -126,7 +134,7 @@ class CircleDetector(object):
 							return
 
 						#unable to calculate distance due to invalid data
-						else: 
+						else:
 							stop = current_milli_time()
 							child_conn.send(( stop-start, center, 0, self.finalTarget))
 							return
@@ -148,9 +156,9 @@ class CircleDetector(object):
 		size = len(rawCircles)
 		nestedCircles = np.empty(size, object)
 		nestedCnt = 0
-		for i in range(0,size):
+		for i in xrange(0,size):
 			nested = False
-			for j in range(i, size):
+			for j in xrange(i, size):
 				if i != j:
 					circle1 = rawCircles[i]
 					circle2 = rawCircles[j]
@@ -159,14 +167,14 @@ class CircleDetector(object):
 					radius2 = (circle2[1][0] + circle2[1][1]) /2.0
 
 					distance = self.distCenters(circle1,circle2)
-						
+
 					#check if a circle is nested within another circle
 					if(distance < math.fabs(radius1 - radius2)):
 						nested = True
 			#add the base circle if it is nested
 			if nested:
 				nestedCircles[nestedCnt] = rawCircles[i]
-				nestedCnt += 1	
+				nestedCnt += 1
 		#remove null objects
 		nestedCircles  = np.resize(nestedCircles,nestedCnt)
 
@@ -185,23 +193,23 @@ class CircleDetector(object):
 		size = len(ellipses)
 		minDistance = 640 #image width
 		center = 0,0
-		for i in range(0,size):
+		for i in xrange(0,size):
 			nested = False
-			for j in range(i, size):
+			for j in xrange(i, size):
 				ellipse1 = ellipses[i]
 				ellipse2 = ellipses[j]
 				distance = math.sqrt(math.pow((ellipse1[0][0]-ellipse2[0][0]),2) + math.pow((ellipse1[0][1] - ellipse2[0][1]),2))
 				if distance <= minDistance and i != j:
 					minDistance = distance
 					center = ellipse1[0][0], ellipse1[0][1]
-		
+
 		return center
 
 	def ellipsesAroundCenter(ellipses, center, threshold):
 		size = len(ellipses)
 		centeredEllipses = np.empty(size,object)
 		centeredCnt = 0
-		for i in range(0,size):
+		for i in xrange(0,size):
 				distance = math.sqrt(math.pow((ellipses[i][0][0]-center[0]),2) + math.pow((ellipses[i][0][1] - center[1]),2))
 				if distance <= threshold:
 					centeredEllipses[centeredCnt] = ellipses[i]
@@ -209,18 +217,18 @@ class CircleDetector(object):
 		centeredEllipses = np.resize(centeredEllipses,centeredCnt)
 		return centeredEllipses
 	'''
-	#findCommonCenter - locates a group of circles which share a the most common center. Returns the group and the center point 
+	#findCommonCenter - locates a group of circles which share a the most common center. Returns the group and the center point
 	def findCommonCenter(self,nestedCircles):
 
 		size = len(nestedCircles)
 
 		#sort by radius
-		for i in range(0,size):
+		for i in xrange(0,size):
 			baseCircle = nestedCircles[i]
 			smallestRadius = (baseCircle[1][0] + baseCircle[1][1]) /2.0
 			smallest = i
 
-			for j in range(i,size):
+			for j in xrange(i,size):
 				circle = nestedCircles[j]
 				radius = (circle[1][0] + circle[1][1]) /2.0
 				if(radius < smallestRadius):
@@ -244,13 +252,13 @@ class CircleDetector(object):
 		xSum = np.zeros(size)
 		ySum = np.zeros(size)
 
-		for i in range(size-1,0,-1):
+		for i in xrange(size-1,0,-1):
 			outer = nestedCircles[i]
 			concentricCombos[i][0] = outer
 			cnt = 1
-			
 
-			for j in range(i, 0, -1):
+
+			for j in xrange(i, 0, -1):
 				inner = nestedCircles[j]
 				#outer circle and inner circle have same center, are different
 				if (self.distCenters(outer,inner) < self.distance_threshold) and (i != j):
@@ -291,17 +299,17 @@ class CircleDetector(object):
 		ratios = np.empty(size-1,float)
 		cnt = 0
 
-		for i in range(0,size-1):
+		for i in xrange(0,size-1):
 			circle1 = target[i]
 			circle2 = target[i+1]
 			radius1 = (circle1[1][0] + circle1[1][1]) /2.0
 			radius2 = (circle2[1][0] + circle2[1][1]) /2.0
 
-			
+
 			ratio = radius2 / radius1
 			ratios[cnt] = round(ratio,3)
 			cnt += 1
-		return ratios			
+		return ratios
 
 
 	#calculateRingSize - based on ring ID number and target size, calculate the size of a specific ring
@@ -309,7 +317,7 @@ class CircleDetector(object):
 		radius = self.outer_ring #in meters
 
 		#actualRadius Outer ring size * ratio[n] * ratios[n + 1] ...
-		for i in range(0,ringNumber):
+		for i in xrange(0,ringNumber):
 			radius = radius * self.target_code[i]
 
 		return radius #in meters
@@ -319,11 +327,11 @@ class CircleDetector(object):
 	def calcDistToTarget(self,target, ratios):
 		distance = 0
 		readings = 0
-		for i in range(0,len(ratios)):
+		for i in xrange(0,len(ratios)):
 			ratio = ratios[i]
-			for j in range(0,len(self.target_code)):
+			for j in xrange(0,len(self.target_code)):
 
-				
+
 				if(math.fabs(self.target_code[j] - ratio) <= self.ratio_tolerance):
 					circle1 = target[i] #outer ring
 					circle2 = target[i+1] #inner ring
@@ -337,13 +345,12 @@ class CircleDetector(object):
 					dist1 = get_distance_from_pixels(radius1, self.calculateRingSize(j),fov,img_size)
 					dist2 = get_distance_from_pixels(radius2, self.calculateRingSize(j+1),fov,img_size)
 					distance += (dist1 + dist2 )/2.0
-					
-					
+
+
 					readings += 1
-		
-		#can not decode target	
+
+		#can not decode target
 		if(readings == 0):
 			return -1
 		#average all distance readings
 		return distance/(readings * 1.0)
-
