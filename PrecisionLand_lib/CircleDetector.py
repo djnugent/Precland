@@ -5,9 +5,25 @@ import time
 import cv2
 import numpy as np
 
+#for running outside of mavproxy
+if __name__ == "__main__":
+	import sys
+	import os
+	import inspect
+	#Add script directory to path
+	script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+	print script_dir
+	script_dir = script_dir.replace('PrecisionLand_lib','')
+	sys.path.append(script_dir)
+
+	from Common.VN_dispatcher import VN_dispatcher
+	from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
+
+
 #COMMOM IMPORTS
 from Common.VN_config import VN_config
 from Common.VN_util import *
+
 
 
 '''
@@ -50,35 +66,45 @@ class CircleDetector(object):
 		self.cam_height = VN_config.get_integer('camera', 'height', 480)
 
 
-	#analyze_frame - process an frame and look for a bullseye
+
+	#analyze_frame_async - process an frame and look for a bullseye asynchronously
 	#params -child_conn: child pipe connection
 	#		-img: raw image to be processed
-	#		-craftAttitude: roll and pitch of aircraft
 	#return -runtime: time in millis to process an image
 	#		-center: tuple(x,y) of the objects position on; 'None' when no target
 	#		-distance: distance in meters to the target; -1 when unable to calculate
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
-	def analyze_frame(self, child_conn, img, craftAttitude):
+	def analyze_frame_async(self, child_conn, img):
+		child_conn.send(self.analyze_frame(img))
+
+
+	#analyze_frame - process an frame and look for a bullseye
+	#params -child_conn: child pipe connection
+	#		-img: raw image to be processed
+	#return -runtime: time in millis to process an image
+	#		-center: tuple(x,y) of the objects position on; 'None' when no target
+	#		-distance: distance in meters to the target; -1 when unable to calculate
+	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
+	def analyze_frame(self, img):
 		#start timer
 		start = current_milli_time()
 
-
 		#blur image and grayscale
 		#img = cv2.medianBlur(img,5)
+
 		cimg = None
-		#check for an already gray image
+		#check for an already gray image(aka the px4flow)
 		if(len(img.shape)<3):
-			cimg = img
+			#threshold for low light conditions
+			ret,cimg = cv2.threshold(cimg,32,255,cv2.THRESH_BINARY)
+
 		else:
 			#grayscale image
 			cimg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-
-		#threshold
-		ret,thresh = cv2.threshold(cimg,32,255,cv2.THRESH_BINARY)
 		#dilate
 		kernel = np.ones((5,5),np.uint8)
-		dil = cv2.dilate(thresh, kernel)
+		dil = cv2.dilate(cimg, kernel)
 
 		#canny edge detector
 		edges = cv2.Canny(dil,100,200,3)
@@ -130,20 +156,17 @@ class CircleDetector(object):
 							distance = self.calcDistToTarget(self.finalTarget,ratios)
 
 							stop = current_milli_time()
-							child_conn.send((stop-start,center, distance, self.finalTarget))
-							return
+							return (stop-start,center, distance, self.finalTarget)
 
 						#unable to calculate distance due to invalid data
 						else:
 							stop = current_milli_time()
-							child_conn.send(( stop-start, center, 0, self.finalTarget))
-							return
+							return ( stop-start, center, 0, self.finalTarget)
 
 
 		#unable to locate target
 		stop = current_milli_time()
-		child_conn.send((stop-start,None,0,None))
-		return
+		return (stop-start,None,0,None)
 
 	#distCenters - distance between two ellipses
 	def distCenters(self,ellipse1,ellipse2):
@@ -311,7 +334,6 @@ class CircleDetector(object):
 			cnt += 1
 		return ratios
 
-
 	#calculateRingSize - based on ring ID number and target size, calculate the size of a specific ring
 	def calculateRingSize(self,ringNumber):
 		radius = self.outer_ring #in meters
@@ -321,7 +343,6 @@ class CircleDetector(object):
 			radius = radius * self.target_code[i]
 
 		return radius #in meters
-
 
 	#calcDistToTarget - processes a target and calculates distance to the target
 	def calcDistToTarget(self,target, ratios):
@@ -354,3 +375,23 @@ class CircleDetector(object):
 			return -1
 		#average all distance readings
 		return distance/(readings * 1.0)
+
+
+if __name__ == "__main__":
+
+	cam = cv2.VideoCapture(0)
+	detector = CircleDetector()
+
+	if cam is not None:
+		while True:
+			ret, img = cam.read()
+			if(img is not None):
+				results = detector.analyze_frame(img)
+				rend_Image = gui.add_target_highlights(img, results[3])
+				#show results
+				cv2.imshow('gui', rend_Image)
+				cv2.waitKey(1)
+				print ('RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[0],results[1],results[2],results[3]))
+
+			else:
+				print "failed to grab image"

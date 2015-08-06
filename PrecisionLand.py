@@ -40,6 +40,8 @@ Temporary Changes:
 
 '''
 TODO:
+-Add timestamp/sync
+-ID A FRAME BEFORE PLACING ON QUEQUE TO MAKE SURE WE SYNC RESULTS WITH A SPECIFIC IMAGE!!!!!!
 -update config file
 
 Future:
@@ -153,16 +155,16 @@ class PrecisionLand(object):
 				capStop = current_milli_time()
 
 				'''
+				#debug
 				ret,thresh = cv2.threshold(frame,32,255,cv2.THRESH_BINARY)
 				cv2.imshow("thresh", thresh)
 				cv2.waitKey(1)
+
 				kernel = np.ones((5,5),np.uint8)
 				erode = cv2.dilate(frame,kernel)
 				cv2.imshow("erode", erode)
 				cv2.waitKey(1)
 
-
-				#debug
 				edges = cv2.Canny(erode,100,200,3)
 
 				contours, hierarchy = cv2.findContours(edges,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -171,6 +173,7 @@ class PrecisionLand(object):
 				cv2.imshow("cont", img)
 				cv2.waitKey(1)
 				'''
+
 				'''
 				if(self.kill_camera):
 					frame[:] = (0,255,0)
@@ -189,7 +192,7 @@ class PrecisionLand(object):
 					imageQueue.put(frame)
 
 					#the function must be run directly from the class
-					VN_dispatcher.dispatch(target=detector.analyze_frame, args=(frame,attitude,))
+					VN_dispatcher.dispatch(target=detector.analyze_frame_async, args=(frame,))
 
 
 
