@@ -5,27 +5,29 @@ import numpy as np
 
 #Make the PX4Flow sensor behave as a webcam
 #Thanks to Kevin Mehall for his contribution
-class Flow_Camera:
- 	def __init__(self):
- 		self.size = 320
- 		image = np.zeros((self.size, self.size), dtype='uint8')
- 		try:
- 			self.dev = usb.core.find(idVendor=0x26ac, idProduct=0x0015)
+class Flow_Camera():
+	def __init__(self):
+		self.size = 320
+		image = np.zeros((self.size, self.size), dtype='uint8')
+		try:
+			self.dev = usb.core.find(idVendor=0x26ac, idProduct=0x0015)
 			self.endpoint = self.dev[0][(2,0)][0]
 		except:
 			pass
 
- 	def isOpened(self):
- 		return (self.dev is not None) and (self.endpoint is not None)
+	def isOpened(self):
+		return (self.dev is not None) and (self.endpoint is not None)
 
- 	def read(self):
- 		data = self.endpoint.read(64 * (1 + (self.size*self.size) / 64), timeout=2000)
- 		try:
- 			image = np.frombuffer(data, dtype='uint8').reshape(self.size, self.size)
- 		except ValueError: # we usually fail on our first images
- 			image = np.zeros((self.size, self.size), dtype='uint8')
-
- 		return (True, image)
+	def read(self):
+		data = self.endpoint.read(64 * (1 + (self.size*self.size) / 64), timeout=2000)
+		ret = None
+		try:
+			image = np.frombuffer(data, dtype='uint8').reshape(self.size, self.size)
+			ret = True
+		except ValueError: # we usually fail on our first images
+			image = np.zeros((self.size, self.size), dtype='uint8')
+			ret = False
+		return (ret, image)
 
 
 # create a single global object
@@ -41,8 +43,3 @@ if __name__ == "__main__":
 			cv2.waitKey(1)
 	else:
 		print "No camera found!!"
-
-
-
-
-

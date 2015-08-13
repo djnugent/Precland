@@ -22,7 +22,7 @@ class PrecisionLandGUI(object):
 	def add_artifical_horizon(self, img, craftAttitude):
 		pass
 
-	@classmethod		
+	@classmethod
 	#add_mode_border- put a colored border around the image to signify the control the computer has
 	def add_mode_border(self, mode):
 		pass
@@ -39,11 +39,27 @@ class PrecisionLandGUI(object):
 		img = copy(image)
 		if(len(img.shape) < 3):
 			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
-		
+
 		if target is not None:
 			for i in range(0,len(target)):
 				cv2.ellipse(img,target[i],(0,255,0),2)
 		return img
+
+
+	@classmethod
+	#add_target_highlight- highlight the detected target, 1.the target center 2.each ring
+	def add_ring_highlights(self, image, rings):
+		#create a shallow copy of image
+		img = copy(image)
+		if(len(img.shape) < 3):
+			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
+
+		if rings is not None:
+			for ring in rings:
+				cv2.circle(img,ring[0][0],ring[0][1],(255,0,0), thickness=2)
+				cv2.circle(img,ring[1][0],ring[1][1],(255,0,0), thickness=2)
+		return img
+
 
 	@classmethod
 	#add_distance - adds a distance value to image

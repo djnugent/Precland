@@ -12,12 +12,12 @@ if __name__ == "__main__":
 	import inspect
 	#Add script directory to path
 	script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-	print script_dir
 	script_dir = script_dir.replace('PrecisionLand_lib','')
 	sys.path.append(script_dir)
 
 	from Common.VN_dispatcher import VN_dispatcher
 	from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
+	from Common.Flow_Camera import flow_cam
 
 
 #COMMOM IMPORTS
@@ -92,22 +92,22 @@ class CircleDetector(object):
 		#blur image and grayscale
 		#img = cv2.medianBlur(img,5)
 
-		cimg = None
-		#check for an already gray image(aka the px4flow)
-		if(len(img.shape)<3):
-			#threshold for low light conditions
-			ret,cimg = cv2.threshold(cimg,32,255,cv2.THRESH_BINARY)
-
-		else:
+		#check for a colored image
+		if(len(img.shape)>2):
 			#grayscale image
-			cimg = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+		#adaptive threshold
+		avg, null, null, null = cv2.mean(img)
+		thres = int(avg)
+		ret,img = cv2.threshold(img,thres,255,cv2.THRESH_BINARY)
 
 		#dilate
 		kernel = np.ones((5,5),np.uint8)
-		dil = cv2.dilate(cimg, kernel)
+		img = cv2.morphologyEx(img,cv2.MORPH_CLOSE, kernel, borderType=cv2.BORDER_CONSTANT)
 
 		#canny edge detector
-		edges = cv2.Canny(dil,100,200,3)
+		edges = cv2.Canny(img,100,200,3)
 
 		if edges is not None:
 
@@ -157,8 +157,7 @@ class CircleDetector(object):
 
 							stop = current_milli_time()
 							return (stop-start,center, distance, self.finalTarget)
-
-						#unable to calculate distance due to invalid data
+							#unable to calculate distance due to invalid data
 						else:
 							stop = current_milli_time()
 							return ( stop-start, center, 0, self.finalTarget)
@@ -167,6 +166,7 @@ class CircleDetector(object):
 		#unable to locate target
 		stop = current_milli_time()
 		return (stop-start,None,0,None)
+
 
 	#distCenters - distance between two ellipses
 	def distCenters(self,ellipse1,ellipse2):
@@ -380,12 +380,13 @@ class CircleDetector(object):
 if __name__ == "__main__":
 
 	cam = cv2.VideoCapture(0)
+	cam = flow_cam
 	detector = CircleDetector()
 
 	if cam is not None:
 		while True:
 			ret, img = cam.read()
-			if(img is not None):
+			if(img is not None and ret == True):
 				results = detector.analyze_frame(img)
 				rend_Image = gui.add_target_highlights(img, results[3])
 				#show results

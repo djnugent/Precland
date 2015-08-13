@@ -23,13 +23,13 @@ Usage:
 Upon intializing the dispatcher, the function/process to dispatched must be passed as an arguement to the constructor
 The first parameter of the function/process must be a child pipe connection
 	This pipe connection gets passed in AUTOMATICALLY by the dispatcher.
-	Meainng it is never used outside the function definition and the dispatcher class 
+	Meainng it is never used outside the function definition and the dispatcher class
 All other arguements depend on the operation of the function/process
 	These will be passed into the dispatch() method
 	Exculding the pipe connection. The dispatcher passes that in on its own
 The function/process will have to return all results through a pipe.
 Results must be returned as a tuple
-The first result of the tuple MUST BE an interal run time(in millis) of the function/process 
+The first result of the tuple MUST BE an interal run time(in millis) of the function/process
 '''
 
 
@@ -55,7 +55,7 @@ class VisNavDispatcher(object):
 		#****i.e. dark = slower fps and light = fast frame rate
 		#****Capture time is dependent on available CPU
 		#This time will be dynamically calculated using an rolling average
-		self.captureTime = 0 
+		self.captureTime = 0
 		self.captureTimeSet = np.zeros(4)
 
 		#The time(in millis) it takes to process an image
@@ -68,7 +68,7 @@ class VisNavDispatcher(object):
 		#Determined by splitting up processTime among available number of cores
 		#*****This will not be smaller than captureTime because we won't allow it to process frames more often than capturing frames; it will cause sync issues with Pipe()
 		#*****If the CPU is slow and has limited cores, we may process everyother frame or every nth frame!!!
-		#runTime = max(processTime/processing_cores,captureTime) 
+		#runTime = max(processTime/processing_cores,captureTime)
 		self.runTime = 0
 
 		#set up a pipe to pass info between background processes and dispatcher
@@ -89,7 +89,7 @@ class VisNavDispatcher(object):
 	#update_capture_time - updates the time it takes the camera to capture an image
 	def update_capture_time(self,cap_time):
 		#update captureTime
-		self.captureTime, self.captureTimeSet = self.rolling_average(self.captureTimeSet, cap_time) 
+		self.captureTime, self.captureTimeSet = self.rolling_average(self.captureTimeSet, cap_time)
 
 	#is_ready - checks whether it is time to dispatch a new process
 	def is_ready(self):
@@ -104,7 +104,7 @@ class VisNavDispatcher(object):
 		#mark our last dispatch time
 		self.lastDispatch = current_milli_time()
 
-		
+
 		#splice together arguements
 		#args = (args[0],) + (self.child_conn,) + args[1:]
 		args = (self.child_conn,) + args
@@ -127,19 +127,19 @@ class VisNavDispatcher(object):
 			results = self.parent_conn.recv()
 
 			#update processTime. All processes must return a runtime through the pipe
-			self.processTime, self.processTimeSet = self.rolling_average(self.processTimeSet, results[0]) 
+			self.processTime, self.processTimeSet = self.rolling_average(self.processTimeSet, results[1])
 
 			#Calculate real runtime. Diagnostic purposes only
 			#In an ideal system the dispatch rate would equal the retreival rate. That is not the case here
 			actualRunTime = current_milli_time() - self.lastRetreival
 			self.lastRetreival = current_milli_time()
 
-			VN_logger.text(VN_logger.PERFORMANCE, "DispatchHz: {0} runHz: {1} ProcessHz: {2} CaptureHz: {3} Processes: {4} ".format(round(1000.0/(self.runTime)), round(1000.0/actualRunTime), round((1000.0/results[0])),round(1000.0/self.captureTime), len(multiprocessing.active_children())))
+			VN_logger.text(VN_logger.PERFORMANCE, "DispatchHz: {0} runHz: {1} ProcessHz: {2} CaptureHz: {3} Processes: {4} ".format(round(1000.0/(self.runTime)), round(1000.0/actualRunTime), round((1000.0/results[1])),round(1000.0/self.captureTime), len(multiprocessing.active_children())))
 			return results
 
 		return None
 
-	
+
 
 	#rolling_average - returns a rolling average of a data set and inputs a new value
 	def rolling_average(self, dataSet, newValue):
@@ -169,7 +169,7 @@ class VisNavDispatcher(object):
 			capStart = current_milli_time()
 			time.sleep(33.3/1000) #img = smartCam.get_image()
 			capStop = current_milli_time()
-	 		
+
 	 		#update capture time
 	 		self.update_capture_time(capStop-capStart)
 
@@ -180,7 +180,7 @@ class VisNavDispatcher(object):
 			#information has been grabbed from the Pipe
 			if self.is_ready():
 				self.dispatch(target=dummyLoad, args=(83.3))
-	 
+
 	 		#retreive results
 	 		if self.is_available():
 	 			results = self.retreive()
