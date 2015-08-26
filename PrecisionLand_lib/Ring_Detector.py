@@ -34,9 +34,9 @@ class Ring_Detector(object):
 		#how round a circle needs to be. Perfect circle = 1
 		self.eccentricity = VN_config.get_float('algorithm', 'eccentricity', 0.8)
 		#Minimum ratio while comparing contour area to ellipse area
-		self.area_ratio = VN_config.get_float('algorithm','area_ratio', 0.6)
+		self.area_ratio = VN_config.get_float('algorithm','area_ratio', 0.8)
 		#Minimum ratio between outer and inner circle area in a ring
-		self.ring_ratio = VN_config.get_float('algorithm','ring_ratio', 0.5)
+		self.ring_ratio = VN_config.get_float('algorithm','ring_ratio', 0.8)
 		#The smallest span of min max pixels that get enhanced(Largest range is 255, Smaller numbers make image suspitable to noise)
 		self.min_range = VN_config.get_integer('algorithm', 'min_range', 10)
 		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
@@ -66,55 +66,33 @@ class Ring_Detector(object):
 		#start timer
 		start = current_milli_time()
 
+
 		#check for a colored image
 		if(len(img.shape)>2):
 			#grayscale image
 			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
 		# Blur image
-		blur = cv2.GaussianBlur(img,(7,7),0)
+		blur = cv2.GaussianBlur(img,(3,3),0)
 		#blur = cv2.medianBlur(img,3)
 
-		#split into ROIs
-		ROIs = self.spilt_image(blur,img)
-
-		for i in range(0,len(ROIs)):
-			cv2.imshow('Roi{0}'.format(i),ROIs[i][0])
-			cv2.waitKey(1)
+		#fix exposure, contrast, brightness
+		filtered = self.balance(blur,self.ring_ratio, self.res_reduction)
+		#filtered = blur
+		cv2.imshow("filtered",filtered)
 
 
+		#average brightness
+		avg, null, null, null = cv2.mean(filtered)
+		avg = int(avg)
 
-		circles = []
+		#canny edge detector
+		filtered = cv2.Canny(filtered,avg/2,avg)
+		#filtered = self.auto_canny(filtered)
+		cv2.imshow('edges',filtered)
 
-		for roi in ROIs:
-			sub_img = roi[0]
-			origin = roi[1]
-			#fix exposure, contrast, brightness
-			filtered = self.balance(sub_img,self.ring_ratio, self.res_reduction)
-			cv2.imshow("filtered",filtered)
-			'''
-			#average brightness
-			avg, null, null, null = cv2.mean(filtered)
-			avg = int(avg)
-
-			#canny edge detector
-			filtered = cv2.Canny(filtered,avg/2,avg)
-			#filtered = self.auto_canny(filtered)
-			cv2.imshow('edges',filtered)
-			'''
-			#detect circles in ROI
-		 	temp = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
-			#shift circle locations back to original image
-			for i in range(0,len(temp)):
-				cir = temp[i]
-				cir.center += origin
-				temp[i] = cir
-			if len(circles) > 0:
-				circles = np.concatenate((circles,temp))
-			else:
-				circles = temp
-
-
+		#detect circles
+		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
 
 		rings = []
 		best_ring = None
@@ -212,40 +190,6 @@ class Ring_Detector(object):
 					radius = int((ellipse[1][0] + ellipse[1][0]) /4.0) #average  and diameter -> radius
 					return Circle(center,radius,contour)
 		return None
-
-
-	def spilt_image(self, img, orig):
-
-		(height, width) = img.shape
-
-		ROIs = []
-
-		cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
-
-		#circles = cv2.HoughCircles(img, cv2.cv.CV_HOUGH_GRADIENT, 1.2, 100,param2 = 30, minRadius = 0, maxRadius = 0)
-		circles = cv2.HoughCircles(img,cv2.cv.CV_HOUGH_GRADIENT,1.2,100,param1=50,param2=50,minRadius=16,maxRadius=30)
-		# ensure at least some circles were found
-		if circles is not None:
-
-			circles = np.round(circles[0,:]).astype('int')
-
-			for x,y,r in circles:
-				r0 = r * 2
-				x0 = max(x - r0,0)
-				x1 = min(x + r0,width)
-				y0 = max(y - r0,0)
-				y1 = min(y + r0,height)
-
-				roi = orig[y0:y1, x0:x1]
-				origin = Point(x-r0,y-r0)
-				ROIs.append((roi,origin))
-
-
-				cv2.circle(cimg,(x,y),r,(0,255,0),2)
-			cv2.imshow('hough',cimg)
-
-		return ROIs
-
 
 	#balance - improve contrast and adjust brightness in image
 	#Created By: Tobias Shapinsky
@@ -416,14 +360,13 @@ if __name__ == "__main__":
 
 	#cam = cv2.VideoCapture(0)
 	cam = flow_cam
-	writer = ImageWriter("/home/daniel/test_footage_midday")
+	#writer = ImageWriter("/home/daniel/test_footage_midday")
 	detector = Ring_Detector()
 	frame_id = 0
 	if cam is not None:
 		while True:
 			ret, img = cam.read()
 			if(img is not None and ret == True):
-				writer.write(img)
 				results = detector.analyze_frame(img,frame_id)
 				frame_id += 1
 
