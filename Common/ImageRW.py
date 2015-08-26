@@ -55,7 +55,7 @@ class ImageReader():
 	def convert_to_video(self):
 		self.loop = False
 		ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
-		video_writer = cv2.VideoWriter(self.filename + '.avi', ex, 10, (320,320))
+		video_writer = cv2.VideoWriter(self.dir + '.avi', ex, 30, (320,320))
 		while True:
 			img = self.read()
 			if img is not None:
@@ -67,8 +67,9 @@ class ImageReader():
 
 
 if __name__ == "__main__":
-	cam = ImageReader("/home/daniel/Test_footage2/Smart_Camera-gui-3", 1000, start = 350, stop = 850, loop = False)
-
+	cam = ImageReader("/home/daniel/test_footage_webcam", 1000, start = 0, stop = 3400, loop = False)
+	cam.convert_to_video()
+	'''
 	ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
 	video_writer = cv2.VideoWriter('/home/daniel/Test_footage2/sample1.avi', ex, 10, (320,320))
 
@@ -83,3 +84,4 @@ if __name__ == "__main__":
 		else:
 			print "no images found"
 			sys.exit()
+	'''

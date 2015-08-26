@@ -204,7 +204,7 @@ class PrecisionLand(object):
             radius = best_ring.radius
             if best_ring.is_valid():
                 yaw = int(math.degrees(best_ring.orientation))
-        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
+        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(veh_control.get_location().alt))
         rend_Image = gui.add_stats(rend_Image,status_text, 5, 250)
 
         #show/record images

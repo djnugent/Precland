@@ -17,6 +17,7 @@ if __name__ == "__main__":
 
 	from Common.Flow_Camera import flow_cam
 	from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
+	from Common.ImageRW import ImageWriter
 
 
 #COMMOM IMPORTS
@@ -65,33 +66,55 @@ class Ring_Detector(object):
 		#start timer
 		start = current_milli_time()
 
-		#cv2.imshow('norm',img)
-
 		#check for a colored image
 		if(len(img.shape)>2):
 			#grayscale image
 			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
-
 		# Blur image
-		#blur = cv2.GaussianBlur(img,(5,5),0)
-		blur = cv2.medianBlur(img,3)
+		blur = cv2.GaussianBlur(img,(7,7),0)
+		#blur = cv2.medianBlur(img,3)
 
-		#fix exposure, contrast, brightness
-		filtered = self.balance(blur,self.ring_ratio, self.res_reduction)
+		#split into ROIs
+		ROIs = self.spilt_image(blur,img)
 
-		cv2.imshow("filtered",filtered)
+		for i in range(0,len(ROIs)):
+			cv2.imshow('Roi{0}'.format(i),ROIs[i][0])
+			cv2.waitKey(1)
 
-		#average brightness
-		avg, null, null, null = cv2.mean(filtered)
-		avg = int(avg)
 
-		#canny edge detector
-		filtered = cv2.Canny(filtered,avg/2,avg)
-		cv2.imshow('edges',filtered)
 
-		#detect circles
-		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
+		circles = []
+
+		for roi in ROIs:
+			sub_img = roi[0]
+			origin = roi[1]
+			#fix exposure, contrast, brightness
+			filtered = self.balance(sub_img,self.ring_ratio, self.res_reduction)
+			cv2.imshow("filtered",filtered)
+			'''
+			#average brightness
+			avg, null, null, null = cv2.mean(filtered)
+			avg = int(avg)
+
+			#canny edge detector
+			filtered = cv2.Canny(filtered,avg/2,avg)
+			#filtered = self.auto_canny(filtered)
+			cv2.imshow('edges',filtered)
+			'''
+			#detect circles in ROI
+		 	temp = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
+			#shift circle locations back to original image
+			for i in range(0,len(temp)):
+				cir = temp[i]
+				cir.center += origin
+				temp[i] = cir
+			if len(circles) > 0:
+				circles = np.concatenate((circles,temp))
+			else:
+				circles = temp
+
+
 
 		rings = []
 		best_ring = None
@@ -190,6 +213,40 @@ class Ring_Detector(object):
 					return Circle(center,radius,contour)
 		return None
 
+
+	def spilt_image(self, img, orig):
+
+		(height, width) = img.shape
+
+		ROIs = []
+
+		cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
+
+		#circles = cv2.HoughCircles(img, cv2.cv.CV_HOUGH_GRADIENT, 1.2, 100,param2 = 30, minRadius = 0, maxRadius = 0)
+		circles = cv2.HoughCircles(img,cv2.cv.CV_HOUGH_GRADIENT,1.2,100,param1=50,param2=50,minRadius=16,maxRadius=30)
+		# ensure at least some circles were found
+		if circles is not None:
+
+			circles = np.round(circles[0,:]).astype('int')
+
+			for x,y,r in circles:
+				r0 = r * 2
+				x0 = max(x - r0,0)
+				x1 = min(x + r0,width)
+				y0 = max(y - r0,0)
+				y1 = min(y + r0,height)
+
+				roi = orig[y0:y1, x0:x1]
+				origin = Point(x-r0,y-r0)
+				ROIs.append((roi,origin))
+
+
+				cv2.circle(cimg,(x,y),r,(0,255,0),2)
+			cv2.imshow('hough',cimg)
+
+		return ROIs
+
+
 	#balance - improve contrast and adjust brightness in image
 	#Created By: Tobias Shapinsky
 	def balance(self,orig,min_range,res_reduction):
@@ -212,6 +269,20 @@ class Ring_Detector(object):
 			return img
 		else:
 			return np.zeros((img.shape[0],img.shape[1]), np.uint8)
+
+
+	def auto_canny(image, sigma=0.33):
+		# compute the median of the single channel pixel intensities
+		v = np.median(image)
+
+		# apply automatic Canny edge detection using the computed median
+		lower = int(max(0, (1.0 - sigma) * v))
+		upper = int(min(255, (1.0 + sigma) * v))
+		edged = cv2.Canny(image, lower, upper)
+
+		# return the edged image
+		return edged
+
 
 	#smallest oriented target
 	def best_target(self, rings):
@@ -345,12 +416,14 @@ if __name__ == "__main__":
 
 	#cam = cv2.VideoCapture(0)
 	cam = flow_cam
+	writer = ImageWriter("/home/daniel/test_footage_midday")
 	detector = Ring_Detector()
 	frame_id = 0
 	if cam is not None:
 		while True:
 			ret, img = cam.read()
 			if(img is not None and ret == True):
+				writer.write(img)
 				results = detector.analyze_frame(img,frame_id)
 				frame_id += 1
 

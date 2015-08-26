@@ -39,7 +39,7 @@ class PrecisionLandSimulator():
 		self.targetLocation = PositionVector()
 		self.vehicleLocation = PositionVector()
 
-		self.backgroundColor = (74,88,109)
+		self.backgroundColor = (209,209,209)
 
 		#define camera
 		self.camera_width = VN_config.get_integer('camera', 'width', 640)
