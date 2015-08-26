@@ -1,8 +1,7 @@
 #!/usr/bin/python
 import cv2
 import numpy as np
-from copy import copy
-
+import math
 
 class PrecisionLandGUI(object):
 
@@ -48,25 +47,39 @@ class PrecisionLandGUI(object):
 
 	@classmethod
 	#add_target_highlight- highlight the detected target, 1.the target center 2.each ring
-	def add_ring_highlights(self, image, rings):
+	def add_ring_highlights(self, image, rings = None, ring = None):
 		#create a shallow copy of image
-		img = copy(image)
+		img = np.copy(image)
 		if(len(img.shape) < 3):
 			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
 
+
 		if rings is not None:
-			for ring in rings:
-				cv2.circle(img,ring[0][0],ring[0][1],(255,0,0), thickness=2)
-				cv2.circle(img,ring[1][0],ring[1][1],(255,0,0), thickness=2)
+			for r in rings:
+				cv2.circle(img,r.center.tuple(), r.inner_circle.radius,(255,0,0), thickness=1)
+				cv2.circle(img,r.center.tuple(), r.outer_circle.radius,(255,0,0), thickness=1)
+				if r.is_valid():
+					x = r.center.x + int(r.inner_circle.radius * math.sin(r.orientation))
+					y = r.center.y - int(r.inner_circle.radius * math.cos(r.orientation))
+					cv2.line(img,r.center.tuple(),(x,y),(255,255,255), thickness=1 )
+
+		if ring is not None:
+			cv2.circle(img,ring.center.tuple(), ring.inner_circle.radius,(0,0,255), thickness=1)
+			cv2.circle(img,ring.center.tuple(), ring.outer_circle.radius,(0,0,255), thickness=1)
+			if r.is_valid():
+				x = r.center.x + int(r.inner_circle.radius * math.sin(r.orientation))
+				y = r.center.y - int(r.inner_circle.radius * math.cos(r.orientation))
+				cv2.line(img,r.center.tuple(),(x,y),(255,255,255), thickness=1 )
 		return img
 
 
 	@classmethod
-	#add_distance - adds a distance value to image
-	def add_distance(self,img, distance):
-		pass
+	#add_stats - adds a text to the image
+	def add_stats(self,img, text,x0,y0):
 
-	@classmethod
-	#add_fps- display actaul runtime
-	def add_fps(self,img,fps):
-		pass
+		font = cv2.FONT_HERSHEY_SIMPLEX
+		dy = 15
+		for i, line in enumerate(text.split('\n')):
+			y = y0 + i*dy
+			cv2.putText(img,line,(x0,y), font, 0.45,(255,255,255),1)
+		return img

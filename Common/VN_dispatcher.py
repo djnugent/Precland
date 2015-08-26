@@ -97,7 +97,7 @@ class VisNavDispatcher(object):
 
 	#dispatch - dispatch a new process to a core
 	def dispatch(self, target, args):
-
+		
 		if self.is_ready() == False:
 			return
 

@@ -1,5 +1,6 @@
 import sys
-#sys.path.remove('/usr/bin')
+if '/usr/bin' in sys.path:
+	sys.path.remove('/usr/bin')
 import usb.core, usb.util
 import numpy as np
 

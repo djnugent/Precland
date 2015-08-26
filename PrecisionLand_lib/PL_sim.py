@@ -19,12 +19,12 @@ from droneapi.lib import VehicleMode, Location, Attitude
 
 
 '''
-TODO 
+TODO
 Intergrate config file
 
-Long term enhancements: 
+Long term enhancements:
 Add in textured/tiled background
-dynamic exposure levels / frame rate 
+dynamic exposure levels / frame rate
 Add google earth as background
 '''
 
@@ -35,7 +35,7 @@ class PrecisionLandSimulator():
 
 	def __init__(self):
 
-		
+
 		self.targetLocation = PositionVector()
 		self.vehicleLocation = PositionVector()
 
@@ -53,7 +53,7 @@ class PrecisionLandSimulator():
 	def load_target(self,filename, actualSize):
 		self.target = cv2.imread(filename)
 		if self.target is None:
-				print "Unable to load target image!!!!!!!!!!!!\nExiting PrecisionLand.py"
+				print "Unable to load target image!!!\nExiting PrecisionLand.py"
 				sys.exit(0)
 		self.target_width = self.target.shape[1]
 		self.target_height = self.target.shape[0]
@@ -61,7 +61,7 @@ class PrecisionLandSimulator():
 
 		self.actualSize = actualSize
 		#scaling factor for real dimensions to simultor pixels
-		self.pixels_per_meter = (self.target_height + self.target_width) / (2.0 * actualSize) 
+		self.pixels_per_meter = (self.target_height + self.target_width) / (2.0 * actualSize)
 
 
 	#set_target_location- give the target a gps location
@@ -69,7 +69,7 @@ class PrecisionLandSimulator():
 		self.targetLocation.set_from_location(location)
 
 
-	#refresh_simulator - update vehicle position info necessary to simulate an image 
+	#refresh_simulator - update vehicle position info necessary to simulate an image
 	def refresh_simulator(self, vehicleLocation, vehicleAttitude):
 		#get gps location of vehicle
 		self.vehicleLocation.set_from_location(vehicleLocation)
@@ -86,7 +86,7 @@ class PrecisionLandSimulator():
 		while(veh_control.is_connected()):
 		    location = veh_control.get_location()
 		    attitude = veh_control.get_attitude()
-		    
+
 		    self.refresh_simulator(location,attitude)
 		    frame = self.get_frame()
 		    cv2.imshow('frame',frame)
@@ -157,11 +157,11 @@ class PrecisionLandSimulator():
 
 
 			#calculate perspective and position
-			x , y = self.project_3D_to_2D(thetaX,thetaY,thetaZ, aY, aX, aZ, y, x, cZ,camera_height,camera_width,fov) 
+			x , y = self.project_3D_to_2D(thetaX,thetaY,thetaZ, aY, aX, aZ, y, x, cZ,camera_height,camera_width,fov)
 
 			#shift to camera
 			x , y = shift_to_image((x,y),camera_width,camera_height)
-			newCorners[i] = x,y  
+			newCorners[i] = x,y
 
 
 		#project image
@@ -192,27 +192,20 @@ class PrecisionLandSimulator():
 		cX = cX * self.pixels_per_meter
 		cY = cY * self.pixels_per_meter
 		cZ = cZ * self.pixels_per_meter
-		
+
 
 		#render image
 		sim = self.simulate_target(thetaX,thetaY,thetaZ, aX, aY, aZ, cX, cY, cZ, self.camera_height, self.camera_width, self.camera_fov)
-		
+
 		#simulate framerate
 		while(1000/self.camera_frameRate > current_milli_time() - start):
 			pass
 		sim = cv2.cvtColor(sim, cv2.COLOR_BGR2GRAY)
 		return sim
-	
+
 
 sim = PrecisionLandSimulator()
 
 
 if __name__ == "__builtin__":
 	sim.main()
-
-
-
-	
-
-
-

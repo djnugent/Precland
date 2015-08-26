@@ -8,8 +8,7 @@ import os
 import inspect
 import sys
 import numpy as np
-from copy import copy
-
+import multiprocessing
 #Add script directory to path
 script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 sys.path.append(script_dir)
@@ -26,17 +25,11 @@ from Common.VN_vehicle_control import veh_control
 #PRECISION LAND IMPORTS
 from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
 from PrecisionLand_lib.PL_sim import sim
-from PrecisionLand_lib.CircleDetector import CircleDetector
-from PrecisionLand_lib.topcode import TopCode
+from PrecisionLand_lib.Ring_Detector import Ring_Detector, Point, Circle, Ring
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude
 
-
-'''
-Temporary Changes:
--added kill_camera(commented out)
-'''
 
 
 '''
@@ -47,13 +40,8 @@ TODO:
 Future:
 -add parameter set over mavlink
 
-
 Improvements:
 -fix config file naming/loading(make it more intelligent)
--add better target_detected logic(multiple frames required for a lock)
--add update rate to VN_logger
--fix Logging printing to console
--handle droneapi start up better(location being null at start up-> issue using see inside_landing_area() RIGHT at startup)
 '''
 
 
@@ -65,16 +53,25 @@ class PrecisionLand(object):
         VN_config.get_file('Smart_Camera')
 
         #get camera specs
-        self.camera_index = VN_config.get_integer('camera','camera_index',0)
-        self.camera_width = VN_config.get_integer('camera', 'camera_width', 640)
-        self.camera_height = VN_config.get_integer('camera', 'camera_height', 480)
-        self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72.42)
-        self.camera_vfov = VN_config.get_float('camera', 'vertical-fov', 43.3)
+        self.camera_index = VN_config.get_integer('camera','index',0)
+        self.camera_width = VN_config.get_integer('camera', 'width', 640)
+        self.camera_height = VN_config.get_integer('camera', 'height', 480)
+        self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72)
+        self.camera_vfov = VN_config.get_float('camera', 'vertical-fov', 43)
 
         #simulator
         self.simulator = VN_config.get_boolean('simulator','use_simulator',True)
         self.target_file = VN_config.get_string('simulator', 'target_location', os.environ['HOME'] + '/visnav/target.jpg')
         self.target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
+
+        #The number of core to be used while processing image data
+		#This number may be less than the actaul number of cores on the CPU depending on the users specifications
+		#cores = min(desiredCores, multiprocessing.cpu_count()) //dont allow more cores than the CPU has available and don;t run more than the user wants
+        desired_cores = VN_config.get_integer('processing', 'desired_cores', 4)
+        available_cores = min(desired_cores, multiprocessing.cpu_count())
+		#check if a core is already in use for background image capture
+        cores_image_capture = int(VN_config.get_boolean('processing','background_capture', True))
+        self.cores_processing = max(available_cores - cores_image_capture,1)
 
         #Run the program no matter what mode or location; Useful for debug purposes
         self.always_run = VN_config.get_boolean('general', 'always_run', True)
@@ -82,8 +79,6 @@ class PrecisionLand(object):
         #how many frames have been captured
         self.frames_captured = 0
 
-        #debugging:
-        self.kill_camera = False
 
     def name(self):
         return "Precision_Land"
@@ -111,7 +106,7 @@ class PrecisionLand(object):
 
         #create an image processor
         #detector = CircleDetector()
-        detector = TopCode()
+        detector = Ring_Detector()
 
         #create a queue for images
         imageQueue = []
@@ -123,21 +118,11 @@ class PrecisionLand(object):
 
         while veh_control.is_connected():
 
-            '''
-            #kill camera for testing
-            if(cv2.waitKey(2) == 1113938):
-                self.kill_camera =  not self.kill_camera
-            '''
-
-            #we are in the landing zone or in a landing mode and we are still running the landing program
-            #just because the program is running does not mean it controls the vehicle
-            #i.e. in the landing area but not in a landing mode
-            #FIXME add inside_landing_area() back to conditional
+            #we are in a landing mode and we are still running the landing program
             if (self.always_run) or (veh_control.get_mode() == "LAND") or (veh_control.get_mode() == "RTL"):
 
                 #update how often we dispatch a command
                 VN_dispatcher.calculate_dispatch_schedule()
-
 
                 #update simulator
                 if(self.simulator):
@@ -155,71 +140,45 @@ class PrecisionLand(object):
                     frame = VN_video.get_image()
                 capStop = current_milli_time()
 
-
-                '''
-                if(self.kill_camera):
-                    frame[:] = (0,255,0)
-                '''
-
-                #update capture time
-                VN_dispatcher.update_capture_time(capStop-capStart)
+                #multicore enhancements
+                if self.cores_processing > 1:
+                    #update capture time
+                    VN_dispatcher.update_capture_time(capStop-capStart)
 
 
-                #Process image
-                #We schedule the process as opposed to waiting for an available core
-                #This brings consistancy and prevents overwriting a dead process before
-                #information has been grabbed from the Pipe
-                if VN_dispatcher.is_ready():
-                    #queue the image for later use: displaying image, overlays, recording
-                    imageQueue.append((frame,self.frames_captured))
+                    #Process image
+                    #We schedule the process as opposed to waiting for an available core
+                    #This brings consistancy and prevents overwriting a dead process before
+                    #information has been grabbed from the Pipe
+                    if VN_dispatcher.is_ready():
+                        #queue the image for later use: displaying image, overlays, recording
+                        imageQueue.append((frame,self.frames_captured))
 
-                    #the function must be run directly from the class
-                    VN_dispatcher.dispatch(target=detector.analyze_frame_async, args=(frame,self.frames_captured))
+                        #the function must be run directly from the class
+                        VN_dispatcher.dispatch(target=detector.analyze_frame_async, args=(frame,self.frames_captured))
 
+                        self.frames_captured += 1
+
+
+                    #retreive results
+                    if VN_dispatcher.is_available():
+
+                        #results of image processor
+                        results = VN_dispatcher.retreive()
+                        img, frame_id = None, None
+                        for f in imageQueue:
+                            img, frame_id = f
+                            if results[0] == frame_id:
+                                imageQueue.remove(f)
+                                break
+
+                        self.process_results(results, img, frame_id)
+
+                #single core
+                else:
+                    results = detector.analyze_frame(frame, self.frames_captured)
+                    self.process_results(results, frame, self.frames_captured)
                     self.frames_captured += 1
-
-
-                #retreive results
-                if VN_dispatcher.is_available():
-
-                    #results of image processor
-                    results = VN_dispatcher.retreive()
-
-                    # get image that was passed with the image processor
-                    for f in imageQueue:
-                        img, frame_id = f
-                        if results[0] == frame_id:
-                            imageQueue.remove(f)
-                            break
-                    VN_logger.text(VN_logger.GENERAL, 'Frame {0}'.format(frame_id))
-
-
-                    #overlay gui
-                    #rend_Image = gui.add_target_highlights(img, results[3])
-                    rend_Image = gui.add_ring_highlights(img, results[4])
-
-                    #show/record images
-                    VN_logger.image(VN_logger.RAW, img)
-                    VN_logger.image(VN_logger.GUI, rend_Image)
-
-
-                    #display/log data
-                    VN_logger.text(VN_logger.ALGORITHM,'RunTime: {0} Center: {1} Distance: {2} Raw Target: {3}'.format(results[1],results[2],results[3],results[4]))
-                    VN_logger.text(VN_logger.DEBUG, 'Rings detected: {0}'.format(len(results[4])))
-
-                    #send results if we found the landing pad
-                    if(results[2] is not None):
-                        #shift origin to center of the image
-                        x_pixel = results[2][0] - (self.camera_width/2.0)
-                        y_pixel = results[2][1] - (self.camera_height/2.0) #y-axis is inverted??? Works with arducopter
-
-                        #convert target location to angular radians
-                        x_angle = x_pixel * (self.camera_hfov / self.camera_width) * (math.pi/180.0)
-                        y_angle = y_pixel * (self.camera_vfov / self.camera_height) * (math.pi/180.0)
-
-                        #send commands to autopilot
-                        veh_control.report_landing_target(x_angle, y_angle, results[3],0,0)
-
 
             else:
                 VN_logger.text(VN_logger.GENERAL, 'Not in landing mode')
@@ -231,7 +190,36 @@ class PrecisionLand(object):
         if(self.simulator == False):
             VN_video.stop_capture()
 
+    def process_results(self,results, img, frame_id):
 
+        VN_logger.text(VN_logger.GENERAL, 'Frame {0}'.format(frame_id))
+
+        best_ring = results[2]
+        rings = results[3]
+
+        #overlay gui
+        rend_Image = gui.add_ring_highlights(img, rings,best_ring)
+        yaw , radius = None, None
+        if best_ring is not None:
+            radius = best_ring.radius
+            if best_ring.is_valid():
+                yaw = int(math.degrees(best_ring.orientation))
+        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
+        rend_Image = gui.add_stats(rend_Image,status_text, 5, 250)
+
+        #show/record images
+        VN_logger.image(VN_logger.RAW, img)
+        VN_logger.image(VN_logger.GUI, rend_Image)
+
+        #display/log data
+        VN_logger.text(VN_logger.ALGORITHM, status_text.replace('\n', ', '))
+
+        #send results if we found the landing pad
+        if(best_ring is not None):
+            x_angle, y_angle, yaw = best_ring.get_angular_offset(self.camera_width,self.camera_height,self.camera_hfov,self.camera_vfov)
+
+            #send commands to autopilot
+            veh_control.report_landing_target(x_angle, y_angle,0,0,0)
 
 
 # if starting from mavproxy
