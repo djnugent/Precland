@@ -5,6 +5,16 @@ import time
 import cv2
 import numpy as np
 
+
+'''
+Possible Optimisations:
+speed up canny(fix image blur-> bilateral works well but is slow or write a better adaptive canny)
+speed up circle detection
+speed up ring detection
+Try ROI using hough circles
+'''
+
+
 #for running outside of mavproxy
 if __name__ == "__main__":
 	import sys
@@ -42,6 +52,8 @@ class Ring_Detector(object):
 		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
 		self.res_reduction = VN_config.get_integer('algorithm', 'res_reduction',1)
 
+		self.perf = []
+
 
 
 	#analyze_frame_async - process an frame and look for a bullseye asynchronously
@@ -73,13 +85,15 @@ class Ring_Detector(object):
 			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
 		# Blur image
-		blur = cv2.GaussianBlur(img,(3,3),0)
-		#blur = cv2.medianBlur(img,3)
+		e1 = cv2.getTickCount()
+		blur = cv2.GaussianBlur(img,(5,5),0)
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		self.perf.append(('blur', time))
 
-		#fix exposure, contrast, brightness
-		filtered = self.balance(blur,self.ring_ratio, self.res_reduction)
+		filtered = blur
 		#filtered = blur
-		cv2.imshow("filtered",filtered)
+		#cv2.imshow("filtered",filtered)
 
 
 		#average brightness
@@ -87,24 +101,42 @@ class Ring_Detector(object):
 		avg = int(avg)
 
 		#canny edge detector
+		e1 = cv2.getTickCount()
 		filtered = cv2.Canny(filtered,avg/2,avg)
 		#filtered = self.auto_canny(filtered)
+
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		self.perf.append(('canny()', time))
 		cv2.imshow('edges',filtered)
 
 		#detect circles
+		e1 = cv2.getTickCount()
 		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		self.perf.append(('detect_circles()', time))
 
 		rings = []
 		best_ring = None
 		#turn circles into rings
 		if len(circles) > 0:
+			e1 = cv2.getTickCount()
 			rings = self.detect_rings(circles,self.ring_ratio)
+			e2 = cv2.getTickCount()
+			time = (e2-e1) / cv2.getTickFrequency() * 1000
+			self.perf.append(('detect_rings()', time))
 
 		#find smallest ring with orientation(if available)
 		if len(rings) > 0:
+			e1 = cv2.getTickCount()
 			best_ring = self.best_target(rings)
+			e2 = cv2.getTickCount()
+			time = (e2-e1) / cv2.getTickFrequency() * 1000
+			self.perf.append(('best_ring()', time))
 
 		stop = current_milli_time()
+		self.print_perf()
 		return (frame_id, stop-start,best_ring,rings)
 
 
@@ -150,7 +182,7 @@ class Ring_Detector(object):
 
 		#locate contours
 		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-		cv2.imshow("cont",img)
+		#cv2.imshow("cont",img)
 
 		#turn contours into circles
 		circles = np.empty((len(contours)),object)
@@ -208,14 +240,16 @@ class Ring_Detector(object):
 		if(range_v > min_range):
 			img -= min_v
 			img *= (255.0/(range_v))
+			'''
 			img /= res_reduction
 			img *= res_reduction
+			'''
 			return img
 		else:
 			return np.zeros((img.shape[0],img.shape[1]), np.uint8)
 
 
-	def auto_canny(image, sigma=0.33):
+	def auto_canny(self, image, sigma=0.33):
 		# compute the median of the single channel pixel intensities
 		v = np.median(image)
 
@@ -251,6 +285,11 @@ class Ring_Detector(object):
 					min_rad = best_target.radius
 
 		return best_target
+
+	def print_perf(self):
+		for ent in self.perf:
+			print ent[0], ent[1]
+		self.perf = []
 
 
 class Point(object):
