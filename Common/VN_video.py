@@ -34,17 +34,17 @@ class VisNavVideo:
         # get image resolution
         self.img_width = VN_config.get_integer('camera','width',640)
         self.img_height = VN_config.get_integer('camera','height',480)
-        
+
 
         # get image center
         self.img_center_x = self.img_width / 2
         self.img_center_y = self.img_height / 2
-        
-        
+
+
         # define field of view
         self.cam_hfov = VN_config.get_float('camera','horizontal-fov',70.42)
         self.cam_vfov = VN_config.get_float('camera','vertical-fov',43.3)
-        
+
 
 
         #get camera distortion matrix and intrinsics. Defaults: logitech c920
@@ -77,32 +77,35 @@ class VisNavVideo:
         self.parent_conn = None       # parent end of communicatoin pipe
         self.img_counter = 0          # num images requested so far
         self.is_backgroundCap = False #state variable for background capture
- 
+
 
     # __str__ - print position vector as string
     def __str__(self):
         return "SmartCameraVideo Object W:%d H:%d" % (self.img_width, self.img_height)
 
-    # get_camera - initialises camera and returns VideoCapture object 
+    # get_camera - initialises camera and returns VideoCapture object
     def get_camera(self,index):
-        VN_logger.text(VN_logger.GENERAL, 'Starting Camera....')
+        if camera is not None:
+            return self.camera
+        else:
+            VN_logger.text(VN_logger.GENERAL, 'Starting Camera....')
 
-        # setup video capture
-        if(self.camera_index == 45): #PX4flow sensor
-            self.camera = flow_cam
-        else: #generic video capture device
-            self.camera = cv2.VideoCapture(index)
-            self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
-            self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
+            # setup video capture
+            if(self.camera_index == 45): #PX4flow sensor
+                self.camera = flow_cam
+            else: #generic video capture device
+                self.camera = cv2.VideoCapture(index)
+                self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
+                self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
 
-        # check we can connect to camera
-        if not self.camera.isOpened():
-            VN_logger.text(VN_logger.GENERAL,"failed to open camera, exiting!")
-            sys.exit(0)
+            # check we can connect to camera
+            if not self.camera.isOpened():
+                VN_logger.text(VN_logger.GENERAL,"failed to open camera, exiting!")
+                sys.exit(0)
 
-        VN_logger.text(VN_logger.GENERAL, 'Camera Open!')
+            VN_logger.text(VN_logger.GENERAL, 'Camera Open!')
 
-        return self.camera
+            return self.camera
 
 
     #
@@ -229,19 +232,19 @@ class VisNavVideo:
 
             #undistort image
             img = self.undisort_image(img)
-    
+
             # check image is valid
             if not img is None:
                 # display image
                 cv2.imshow ('image_display', img)
             else:
                 print "no image"
-    
+
             # check for ESC key being pressed
             k = cv2.waitKey(5) & 0xFF
             if k == 27:
                 break
-    
+
             # take a rest for a bit
             time.sleep(0.1)
 

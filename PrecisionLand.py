@@ -140,6 +140,18 @@ class PrecisionLand(object):
                     frame = VN_video.get_image()
                 capStop = current_milli_time()
 
+                #grab additional info
+                if self.simulator:
+                    altitude = location.alt
+                    timestamp = 0
+                elif self.camera_index == 45: #flow
+                    cam = VN_video.get_camera()
+                    altitude = cam.get_lidar()
+                    timestamp = cam.get_timestamp()
+                else: #webcam
+                    altitude = 0
+                    timestamp = 0
+
                 #multicore enhancements
                 if self.cores_processing > 1:
                     #update capture time
@@ -155,7 +167,7 @@ class PrecisionLand(object):
                         imageQueue.append((frame,self.frames_captured))
 
                         #the function must be run directly from the class
-                        VN_dispatcher.dispatch(target=detector.analyze_frame_async, args=(frame,self.frames_captured))
+                        VN_dispatcher.dispatch(target=detector.analyze_frame_async, args=(frame,self.frames_captured,timestamp,altitude))
 
                         self.frames_captured += 1
 
@@ -172,12 +184,12 @@ class PrecisionLand(object):
                                 imageQueue.remove(f)
                                 break
 
-                        self.process_results(results, img, frame_id)
+                        self.process_results(results, img)
 
                 #single core
                 else:
-                    results = detector.analyze_frame(frame, self.frames_captured)
-                    self.process_results(results, frame, self.frames_captured)
+                    results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
+                    self.process_results(results, frame)
                     self.frames_captured += 1
 
             else:
@@ -190,7 +202,9 @@ class PrecisionLand(object):
         if(self.simulator == False):
             VN_video.stop_capture()
 
-    def process_results(self,results, img, frame_id):
+    def process_results(self,results, img):
+
+        frame_id, timestamp, altitude = results[0]
 
         VN_logger.text(VN_logger.GENERAL, 'Frame {0}'.format(frame_id))
 
@@ -204,7 +218,7 @@ class PrecisionLand(object):
             radius = best_ring.radius
             if best_ring.is_valid():
                 yaw = int(math.degrees(best_ring.orientation))
-        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(veh_control.get_location().alt))
+        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(altitude))
         rend_Image = gui.add_stats(rend_Image,status_text, 5, 250)
 
         #show/record images
@@ -219,7 +233,7 @@ class PrecisionLand(object):
             x_angle, y_angle, yaw = best_ring.get_angular_offset(self.camera_width,self.camera_height,self.camera_hfov,self.camera_vfov)
 
             #send commands to autopilot
-            veh_control.report_landing_target(x_angle, y_angle,0,0,0)
+            veh_control.report_landing_target(timestamp,x_angle, y_angle,altitude,0,0)
 
 
 # if starting from mavproxy

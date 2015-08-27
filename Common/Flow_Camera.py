@@ -15,9 +15,9 @@ class Flow_Camera():
 		self.HEADER_SIZE = 16
 		self.READ_SIZE = self.HEADER_SIZE + self.SIZE*self.SIZE
 
-		self.timestamp = None
-		self.lidar = None
-		self.exposure = None
+		self.timestamp = 0
+		self.lidar = 0
+		self.exposure = 0
 
 		#create image
 		image = np.zeros((self.SIZE, self.SIZE), dtype='uint8')
@@ -55,6 +55,12 @@ class Flow_Camera():
 			ret = False
 
 		return (ret, image)
+
+	def get_timestamp(self):
+		return self.timestamp
+
+	def get_lidar(self):
+		return self.lidar
 
 
 # create a single global object

@@ -63,8 +63,8 @@ class Ring_Detector(object):
 	#		-center: tuple(x,y) of the objects position on; 'None' when no target
 	#		-distance: distance in meters to the target; -1 when unable to calculate
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
-	def analyze_frame_async(self, child_conn, img, frame_id):
-		child_conn.send(self.analyze_frame(img,frame_id))
+	def analyze_frame_async(self, child_conn, img, frame_id,timestamp,altitude):
+		child_conn.send(self.analyze_frame(img,frame_id,timestamp,altitude))
 
 
 	#analyze_frame - process an frame and look for a bullseye
@@ -74,10 +74,9 @@ class Ring_Detector(object):
 	#		-center: tuple(x,y) of the objects position on; 'None' when no target
 	#		-distance: distance in meters to the target; -1 when unable to calculate
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
-	def analyze_frame(self, img, frame_id):
+	def analyze_frame(self, img, frame_id,timestamp,altitude):
 		#start timer
 		start = current_milli_time()
-
 
 		#check for a colored image
 		if(len(img.shape)>2):
@@ -137,7 +136,7 @@ class Ring_Detector(object):
 
 		stop = current_milli_time()
 		self.print_perf()
-		return (frame_id, stop-start,best_ring,rings)
+		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
 
@@ -406,7 +405,7 @@ if __name__ == "__main__":
 		while True:
 			ret, img = cam.read()
 			if(img is not None and ret == True):
-				results = detector.analyze_frame(img,frame_id)
+				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
 
 				#show results

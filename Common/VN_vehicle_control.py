@@ -73,11 +73,11 @@ class VehicleControl(object):
     def controlling_vehicle(self):
             if self.api is None:
                 return False
-            
+
             # we are active in guided mode
             if self.get_mode() == "GUIDED":
                 return True
-            
+
             else:
                 return False
     # is_armed - returns arm status of vehicle
@@ -113,7 +113,7 @@ class VehicleControl(object):
                                                          velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
                                                          0, 0, 0, # x, y, z acceleration (not used)
                                                          0, 0)    # yaw, yaw_rate (not used)
-            
+
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
@@ -122,20 +122,20 @@ class VehicleControl(object):
 
 
     # report_landing_target - send LANDING_TARGET command to vehicle to shift landing location
-    def report_landing_target(self, angle_x, angle_y, distance,size_x,size_y):
+    def report_landing_target(self,usec, angle_x, angle_y, distance,size_x,size_y):
         #only let commands through at 33hz
         if(time.time() - self.last_report_landing_target) > self.landing_update_rate:
             self.last_report_landing_target_ = time.time()
             # create the LANDING TARGET message
             msg = self.vehicle.message_factory.landing_target_encode(
-							 0,         # time(unused)
+							                             usec,         # time(unused)
                                                          0,         # landing target number (not used)
                                                          8,         # frame
                                                          angle_x,   # Angular offset x axis
                                                          angle_y,   # Angular offset y axis
                                                          distance,  # Distance to target
-							 size_x,    # unused
-							 size_y)    # unused
+							                             size_x,    # unused
+							                             size_y)    # unused
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
@@ -237,4 +237,3 @@ veh_control = VehicleControl()
 if __name__ == "__builtin__":
     veh_control.connect(local_connect())
     veh_control.test()
-
