@@ -9,6 +9,9 @@ import inspect
 import sys
 import numpy as np
 import multiprocessing
+from pymavlink.mavutil import mavlink
+
+
 #Add script directory to path
 script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 sys.path.append(script_dir)
@@ -25,7 +28,8 @@ from Common.VN_vehicle_control import veh_control
 #PRECISION LAND IMPORTS
 from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
 from PrecisionLand_lib.PL_sim import sim
-from PrecisionLand_lib.Ring_Detector import Ring_Detector, Point, Circle, Ring
+from PrecisionLand_lib.Ring_Detector import Ring_Detector, Circle, Ring
+from PrecisionLand_lib.Control_land import Control_land
 
 #DRONEAPI IMPORTS
 from droneapi.lib import VehicleMode, Location, Attitude
@@ -76,8 +80,12 @@ class PrecisionLand(object):
         #Run the program no matter what mode or location; Useful for debug purposes
         self.always_run = VN_config.get_boolean('general', 'always_run', True)
 
+        #send target's body frame angles or absolute lat/lon
+        self.operation_mode = VN_config.get_string('general', 'operation_mode', 'velocity')
         #how many frames have been captured
         self.frames_captured = 0
+
+        self.ctrl_land = Control_land(veh_control)
 
 
     def name(self):
@@ -87,7 +95,7 @@ class PrecisionLand(object):
         while(veh_control.is_connected() == False):
             # connect to droneapi
             veh_control.connect(local_connect())
-        self.vehicle = veh_control.get_vehicle()
+        cle = veh_control.get_vehicle()
 
     def run(self):
 
@@ -119,7 +127,7 @@ class PrecisionLand(object):
         while veh_control.is_connected():
 
             #we are in a landing mode and we are still running the landing program
-            if (self.always_run) or (veh_control.get_mode() == "LAND") or (veh_control.get_mode() == "RTL"):
+            if (self.always_run or veh_control.get_mode() == "LAND" or veh_control.get_mode() == "RTL") and veh_control.is_armed():
 
                 #update how often we dispatch a command
                 VN_dispatcher.calculate_dispatch_schedule()
@@ -141,13 +149,27 @@ class PrecisionLand(object):
                 capStop = current_milli_time()
 
                 #grab additional info
+                altitude = 0
+                timestamp = 0
                 if self.simulator:
                     altitude = location.alt
                     timestamp = 0
                 elif self.camera_index == 45: #flow
                     cam = VN_video.get_camera()
-                    altitude = cam.get_lidar()
                     timestamp = cam.get_timestamp()
+                    '''
+                    altitude = cam.get_lidar()
+                    #compensated for angle of range finder altitude
+                    attitude = veh_control.get_attitude(timestamp)
+                    temp = math.cos(attitude.pitch) * math.cos(attitude.roll)
+                    temp = max(temp, 0.707)
+                    rng_alt = rng_alt * temp
+                    '''
+#FIXME
+                    altitude = veh_control.get_location().alt
+                    if altitude is None:
+                        altitude = 0
+
                 else: #webcam
                     altitude = 0
                     timestamp = 0
@@ -194,7 +216,7 @@ class PrecisionLand(object):
 
             else:
                 VN_logger.text(VN_logger.GENERAL, 'Not in landing mode')
-
+                time.sleep(0.5)
 
 
         #terminate program
@@ -202,14 +224,15 @@ class PrecisionLand(object):
         if(self.simulator == False):
             VN_video.stop_capture()
 
+
+
+    # process_results - Act on information extracted from image
     def process_results(self,results, img):
-
+        #unpack data
         frame_id, timestamp, altitude = results[0]
-
-        VN_logger.text(VN_logger.GENERAL, 'Frame {0}'.format(frame_id))
-
         best_ring = results[2]
         rings = results[3]
+
 
         #overlay gui
         rend_Image = gui.add_ring_highlights(img, rings,best_ring)
@@ -226,14 +249,41 @@ class PrecisionLand(object):
         VN_logger.image(VN_logger.GUI, rend_Image)
 
         #display/log data
+        VN_logger.text(VN_logger.GENERAL, 'Frame {0}'.format(frame_id))
         VN_logger.text(VN_logger.ALGORITHM, status_text.replace('\n', ', '))
 
         #send results if we found the landing pad
         if(best_ring is not None):
-            x_angle, y_angle, yaw = best_ring.get_angular_offset(self.camera_width,self.camera_height,self.camera_hfov,self.camera_vfov)
 
-            #send commands to autopilot
-            veh_control.report_landing_target(timestamp,x_angle, y_angle,altitude,0,0)
+            bf_angle_offset = best_ring.get_angular_offset(self.camera_width,self.camera_height,self.camera_hfov,self.camera_vfov)
+            coord_frame = None
+            #send raw target angular offsets to autopilot
+            if self.operation_mode == 'angular':
+                x_targ, y_targ = bf_angle_offset.x, bf_angle_offset.y
+                coord_frame = mavlink.MAV_FRAME_BODY_NED
+                #send commands to autopilot
+                veh_control.report_landing_target(timestamp,coord_frame,x_targ, y_targ,altitude,0,0)
+
+            #send absolute target location to autopilot
+            elif self.operation_mode == 'global':
+
+                #interpolate location and attitude
+                veh_loc = veh_control.get_location()#timestamp)
+                veh_home = veh_control.get_home()
+                veh_att = veh_control.get_attitude()#timestamp)
+
+                loc = camera_to_relative(bf_angle_offset,veh_loc,veh_att,altitude,veh_home)
+                x_targ, y_targ = loc.x, loc.y
+                coord_frame = mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+                #send commands to autopilot
+                veh_control.report_landing_target(timestamp,coord_frame,x_targ, y_targ,altitude,0,0)
+
+            elif self.operation_mode == 'velocity':
+                self.ctrl_land.consume_target_offset(bf_angle_offset,timestamp)
+        else:
+            self.ctrl_land.update()
+
+
 
 
 # if starting from mavproxy

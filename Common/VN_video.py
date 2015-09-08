@@ -84,8 +84,8 @@ class VisNavVideo:
         return "SmartCameraVideo Object W:%d H:%d" % (self.img_width, self.img_height)
 
     # get_camera - initialises camera and returns VideoCapture object
-    def get_camera(self,index):
-        if camera is not None:
+    def get_camera(self,index=0):
+        if self.camera is not None:
             return self.camera
         else:
             VN_logger.text(VN_logger.GENERAL, 'Starting Camera....')

@@ -47,7 +47,7 @@ class PrecisionLandSimulator():
 		self.camera_vfov = VN_config.get_float('camera', 'vertical-fov',72.42 )
 		self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72.42)
 		self.camera_fov = math.sqrt(self.camera_vfov**2 + self.camera_hfov**2)
-		self.camera_frameRate = 30
+		self.camera_frameRate = 2
 
 	#load_target- load an image to simulate the target. Enter the actaul target size in meters(assuming the target is square)
 	def load_target(self,filename, actualSize):

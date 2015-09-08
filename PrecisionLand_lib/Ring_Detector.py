@@ -107,7 +107,7 @@ class Ring_Detector(object):
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
 		self.perf.append(('canny()', time))
-		cv2.imshow('edges',filtered)
+		#cv2.imshow('edges',filtered)
 
 		#detect circles
 		e1 = cv2.getTickCount()
@@ -135,7 +135,7 @@ class Ring_Detector(object):
 			self.perf.append(('best_ring()', time))
 
 		stop = current_milli_time()
-		self.print_perf()
+		#self.print_perf()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
@@ -291,37 +291,6 @@ class Ring_Detector(object):
 		self.perf = []
 
 
-class Point(object):
-	def __init__(self, x = None, y = None, tup = None):
-		if tup is not None:
-			self.x = tup[0]
-			self.y = tup[1]
-		else:
-			self.x = x
-			self.y = y
-
-	def distance_to(self,other):
-		return math.sqrt(math.pow(self.x - other.x,2)+ math.pow(self.y - other.y,2))
-
-	def angle_to(self,other):
-		#image coordinates
-		diff_x = other.x - self.x
-		diff_y = self.y -other.y
-		return math.atan2(diff_x,diff_y) #NED coordinates
-
-	def tuple(self):
-		return (self.x,self.y)
-
-	def __add__(self,other):
-		return Point(self.x + other.x, self.y + other.y)
-
-	def __sub__(self,other):
-		return Point(self.x - other.x, self.y - other.y)
-
-	def __str__(self):
-		return "({0}, {1})".format(self.x,self.y)
-
-
 class Circle(object):
 
 	def __init__(self, center, radius, contour = None):
@@ -384,7 +353,7 @@ class Ring(object):
 		#convert target location to angular radians
 		x_angle = x_pixel * (hfov / img_width) * (math.pi/180.0)
 		y_angle = y_pixel * (vfov / img_height) * (math.pi/180.0)
-		return (x_angle,y_angle, self.orientation)
+		return Point3(x_angle,y_angle, self.orientation)
 
 	def is_valid(self):
 		return (self.orientation is not None)
@@ -396,9 +365,11 @@ class Ring(object):
 
 if __name__ == "__main__":
 
-	#cam = cv2.VideoCapture(0)
+	#cam = cv2.VideoCapture('/home/daniel/Downloads/outdoor_full_flight.mp4')
 	cam = flow_cam
-	#writer = ImageWriter("/home/daniel/test_footage_midday")
+	#writer = ImageWriter('/home/daniel/test_footage_midday")
+	#ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
+	#writer = cv2.VideoWriter('/home/daniel/Videos/outdoor_full_flight_overlay.avi', ex , 30, (1920,1080))
 	detector = Ring_Detector()
 	frame_id = 0
 	if cam is not None:
@@ -418,6 +389,8 @@ if __name__ == "__main__":
 
 				status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
 				rend_Image = gui.add_stats(rend_Image,status_text,5, 250)
+				#writer.write(rend_Image)
+
 				cv2.imshow('gui', rend_Image)
 				cv2.waitKey(1)
 				print status_text.replace('\n', ', ')
