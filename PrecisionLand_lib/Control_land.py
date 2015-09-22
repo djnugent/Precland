@@ -42,8 +42,6 @@ class Control_land():
         location = self.v_controller.get_location(self.timestamp)
         attitude = self.v_controller.get_attitude(self.timestamp)
 
-
-
         if(location.alt > self.alt_thres): #fast decent
             self.decent_vel =  self.rapid_speed
         else:                #slow decent

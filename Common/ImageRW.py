@@ -22,7 +22,7 @@ class ImageWriter():
 
 
 class ImageReader():
-	def __init__(self,filename,fps, start = 0, stop = 0, loop = False):
+	def __init__(self,filename,fps = 0, start = 0, stop = 0, loop = False):
 		self.frame = start
 		self.dir = filename
 		self.fps = fps
@@ -30,15 +30,14 @@ class ImageReader():
 		self.stop = stop
 		self.loop = loop
 
-		if not os.path.exists(self.dir):
-			print "no file"
-			sys.exit(0)
+
+	def isOpened(self):
+		return os.path.exists(self.dir)
 
 	def read(self):
 		filename = self.dir + "/" + str(self.frame) + '.bmp'
 		img = cv2.imread(filename)
-
-		if img is None or self.frame > self.stop:
+		if img is None or (self.frame > self.stop and self.stop != 0):
 			#Loop footage
 			if self.loop == True and self.frame > self.start:
 				self.frame = self.start
@@ -47,15 +46,15 @@ class ImageReader():
 				img = cv2.imread(filename)
 			else:
 				img = None
-		print self.frame
 		self.frame += 1
-		time.sleep(1.0/self.fps)
-		return img
+		if self.fps != 0:
+			time.sleep(1.0/self.fps)
+		return (True ,img)
 
 	def peek(self, frame_num):
 		filename = self.dir + "/" + str(frame_num) + '.bmp'
 		img = cv2.imread(filename)
-		return img
+		return (True,img)
 
 	def convert_to_video(self):
 		self.loop = False

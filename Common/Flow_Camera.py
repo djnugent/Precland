@@ -16,7 +16,7 @@ class Flow_Camera():
 		self.READ_SIZE = self.HEADER_SIZE + self.SIZE*self.SIZE
 
 		self.timestamp = 0
-		self.lidar = 0
+		self.distance_mm = 0
 		self.exposure = 0
 
 		#create image
@@ -39,17 +39,10 @@ class Flow_Camera():
 
 		#check for full data transfer
 		if len(data) == self.READ_SIZE:
-			(flags, self.timestamp, self.exposure, reserved) = struct.unpack('<IIII', data[:self.HEADER_SIZE])
+			(self.timestamp, self.exposure, self.distance_mm) = struct.unpack('<QII', data[:self.HEADER_SIZE])
 			image = np.frombuffer(data[self.HEADER_SIZE:], dtype='uint8').reshape(self.SIZE, self.SIZE)
 			ret = True
-			'''
-			try:
-				image = np.frombuffer(data, dtype='uint8').reshape(self.size, self.size)
-				ret = True
-			except ValueError: # we usually fail on our first images
-				image = np.zeros((self.SIZE, self.SIZE), dtype='uint8')
-				ret = False
-			'''
+
 		else:
 			image = np.zeros((self.SIZE, self.SIZE), dtype='uint8')
 			ret = False
@@ -60,7 +53,7 @@ class Flow_Camera():
 		return self.timestamp
 
 	def get_lidar(self):
-		return self.lidar
+		return self.distance_mm /1000.0
 
 
 # create a single global object

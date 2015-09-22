@@ -1,0 +1,42 @@
+#solo config file
+[algorithm]
+eccentricity = 0.7
+min_radius = 14
+area_ratio = 0.85
+min_ring_ratio =  0.70
+max_ring_ratio = 0.90
+min_range = 10
+res_reduction = 1
+
+[processing]
+desired_cores = 1
+background_capture = False
+
+[logging]
+location = /log/
+print_level = debug, general,algorithm
+log_level = aircraft , algorithm, general
+display_level = ,
+record_level = raw, gui
+record_type = image
+
+[camera]
+index = 45
+width = 352
+height = 352
+horizontal-fov = 15.0
+vertical-fov = 15.0
+matrix = 614.01269552 0.0 315.00073982
+	0.0 614.43556296 237.14926858
+	0.0 0.0 1.0
+	
+distortion = 0.12269303 -0.26618881 0.00129035 0.00081791 0.17005303
+	
+
+[simulator]
+use_simulator = False
+target_location = /home/root/visnav/mat_v1.jpg
+
+[general]
+always_run = True
+operation_mode = velocity

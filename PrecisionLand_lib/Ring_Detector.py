@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
 	from Common.Flow_Camera import flow_cam
 	from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
-	from Common.ImageRW import ImageWriter
+	from Common.ImageRW import *
 
 
 #COMMOM IMPORTS
@@ -43,10 +43,14 @@ class Ring_Detector(object):
 		#load algorithm constants
 		#how round a circle needs to be. Perfect circle = 1
 		self.eccentricity = VN_config.get_float('algorithm', 'eccentricity', 0.8)
+		#min radius of a circle(possibly make loosely dynamic)
+		self.min_radius = VN_config.get_integer('algorithm','min_radius', 9)
 		#Minimum ratio while comparing contour area to ellipse area
 		self.area_ratio = VN_config.get_float('algorithm','area_ratio', 0.8)
 		#Minimum ratio between outer and inner circle area in a ring
-		self.ring_ratio = VN_config.get_float('algorithm','ring_ratio', 0.8)
+		self.min_ring_ratio = VN_config.get_float('algorithm','min_ring_ratio', 0.7)
+		#Maximum ratio between outer and inner circle area in a ring
+		self.max_ring_ratio = VN_config.get_float('algorithm', 'max_ring_ratio',0.9)
 		#The smallest span of min max pixels that get enhanced(Largest range is 255, Smaller numbers make image suspitable to noise)
 		self.min_range = VN_config.get_integer('algorithm', 'min_range', 10)
 		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
@@ -111,7 +115,7 @@ class Ring_Detector(object):
 
 		#detect circles
 		e1 = cv2.getTickCount()
-		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, 2)
+		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, min_radius = self.min_radius)
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
 		self.perf.append(('detect_circles()', time))
@@ -121,7 +125,7 @@ class Ring_Detector(object):
 		#turn circles into rings
 		if len(circles) > 0:
 			e1 = cv2.getTickCount()
-			rings = self.detect_rings(circles,self.ring_ratio)
+			rings = self.detect_rings(circles,self.min_ring_ratio,self.max_ring_ratio)
 			e2 = cv2.getTickCount()
 			time = (e2-e1) / cv2.getTickFrequency() * 1000
 			self.perf.append(('detect_rings()', time))
@@ -141,7 +145,7 @@ class Ring_Detector(object):
 
 
 	#detect_rings- Find circles that are nested inside of each other
-	def detect_rings(self,rawCircles,ratio):
+	def detect_rings(self,rawCircles,min_ratio,max_ratio):
 		size = len(rawCircles)
 		rings = np.empty(size, object)
 		ring_count = 0
@@ -158,13 +162,13 @@ class Ring_Detector(object):
 
 					#check if a circle is nested within another circle
 					if distance < abs(radius1 - radius2):
-						if (radius1 < radius2) and (radius1 * 1.0 /radius2 > ratio):
+						if (radius1 < radius2) and (radius1 * 1.0 /radius2 > min_ratio) and (radius1 * 1.0 /radius2 < max_ratio):
 							#small circle, big circle
 							rings[ring_count] = Ring(circle1, circle2)
 							ring_count += 1
 							break
 
-						elif (radius1 > radius2) and (radius2 * 1.0 / radius1 > ratio):
+						elif (radius1 > radius2) and (radius2 * 1.0 / radius1 > min_ratio) and (radius2 * 1.0 / radius1 < max_ratio):
 							#small circle, big circle
 							rings[ring_count] = Ring(circle2, circle1)
 							ring_count += 1
@@ -364,15 +368,42 @@ class Ring(object):
 
 
 if __name__ == "__main__":
+	import argparse
+	#parse arguments
+	parser = argparse.ArgumentParser(description="Run Ring_Detector")
+	#optional arguments
+	parser.add_argument('-i', '--input', default= None, help='use a video filename as an input instead of a webcam')
+	parser.add_argument('-f', '--file', default='Smart_Camera.cnf', help='load a config file other than the default')
+	parser.add_argument('-w', '--write', default=False)
 
-	#cam = cv2.VideoCapture('/home/daniel/Downloads/outdoor_full_flight.mp4')
-	cam = flow_cam
-	#writer = ImageWriter('/home/daniel/test_footage_midday")
-	#ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
-	#writer = cv2.VideoWriter('/home/daniel/Videos/outdoor_full_flight_overlay.avi', ex , 30, (1920,1080))
+	args, unknown = parser.parse_known_args()
+
+
+	#config file
+	VN_config.get_file(args.file)
+
+	#video writer
+	if(args.write):
+		new_file = args.input.replace('raw','gui')
+		if(new_file == args.input):
+			print "Overwrite protection"
+			sys.exit()
+
+		writer = ImageWriter(args.input.replace('raw','gui'))
+
+		
+	#video source
+	cam = None
+
+	if args.input is None:
+		cam = flow_cam
+	else:
+		cam = ImageReader(args.input)
+
+
 	detector = Ring_Detector()
 	frame_id = 0
-	if cam is not None:
+	if cam is not None and cam.isOpened():
 		while True:
 			ret, img = cam.read()
 			if(img is not None and ret == True):
@@ -380,7 +411,7 @@ if __name__ == "__main__":
 				frame_id += 1
 
 				#show results
-				rend_Image = gui.add_ring_highlights(img, results[3],results[2])
+				rend_Image = gui.add_ring_highlights(img, ring = results[2])#results[3]),results[2])
 				yaw , radius = None, None
 				if results[2] is not None:
 					radius = results[2].radius
@@ -389,11 +420,15 @@ if __name__ == "__main__":
 
 				status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
 				rend_Image = gui.add_stats(rend_Image,status_text,5, 250)
-				#writer.write(rend_Image)
+				if(args.write):
+					writer.write(rend_Image)
 
-				cv2.imshow('gui', rend_Image)
-				cv2.waitKey(1)
+				#cv2.imshow('gui', rend_Image)
+				#cv2.waitKey(0)
 				print status_text.replace('\n', ', ')
 
 			else:
 				print "failed to grab image"
+				break;
+	else:
+		print "No video source detected"

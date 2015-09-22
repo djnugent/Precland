@@ -27,9 +27,9 @@ class VisNavConfig(object):
 
 
     #get_file - open a config file
-    def get_file(self,name='Smart_Camera'):
+    def get_file(self,name='Smart_Camera.cnf'):
         # default config file
-        self.config_file = expanduser("~/"+ name + ".cnf")
+        self.config_file = expanduser("~/"+ name)
 
         # read the config file into memory
         self.read()
@@ -41,7 +41,7 @@ class VisNavConfig(object):
         except IOError as e:
             print 'Error {0} reading config file: {1}: '.format(e.errno, e.strerror)
         return
-    
+
     # save - saves the config to disk
     def save(self):
         try:
@@ -60,13 +60,13 @@ class VisNavConfig(object):
     # get_balloon - returns the boolean found in the specified section/option or the default if not found
     def get_boolean(self, section, option, default):
         try:
-            return self.parser.getboolean(section, option) 
+            return self.parser.getboolean(section, option)
         except ConfigParser.Error:
             return default
 
     # set_boolean - sets the boolean to the specified section/option
     def set_boolean(self, section, option, new_value):
-        self.check_section(section) 
+        self.check_section(section)
         self.parser.set(section, option, str(bool(new_value)))
         return
 

@@ -66,10 +66,10 @@ class PrecisionLandGUI(object):
 		if ring is not None:
 			cv2.circle(img,ring.center.tuple(), ring.inner_circle.radius,(0,0,255), thickness=1)
 			cv2.circle(img,ring.center.tuple(), ring.outer_circle.radius,(0,0,255), thickness=1)
-			if r.is_valid():
-				x = r.center.x + int(r.inner_circle.radius * math.sin(r.orientation))
-				y = r.center.y - int(r.inner_circle.radius * math.cos(r.orientation))
-				cv2.line(img,r.center.tuple(),(x,y),(255,255,255), thickness=1 )
+			if ring.is_valid():
+				x = ring.center.x + int(ring.inner_circle.radius * math.sin(ring.orientation))
+				y = ring.center.y - int(ring.inner_circle.radius * math.cos(ring.orientation))
+				cv2.line(img,ring.center.tuple(),(x,y),(255,255,255), thickness=1 )
 		return img
 
 

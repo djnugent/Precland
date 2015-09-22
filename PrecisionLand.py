@@ -66,7 +66,6 @@ class PrecisionLand(object):
         #simulator
         self.simulator = VN_config.get_boolean('simulator','use_simulator',True)
         self.target_file = VN_config.get_string('simulator', 'target_location', os.environ['HOME'] + '/visnav/target.jpg')
-        self.target_size = VN_config.get_float('algorithm', 'outer_ring', 1.0)
 
         #The number of core to be used while processing image data
 		#This number may be less than the actaul number of cores on the CPU depending on the users specifications
@@ -154,6 +153,7 @@ class PrecisionLand(object):
                 if self.simulator:
                     altitude = location.alt
                     timestamp = 0
+
                 elif self.camera_index == 45: #flow
                     cam = VN_video.get_camera()
                     timestamp = cam.get_timestamp()
@@ -281,7 +281,8 @@ class PrecisionLand(object):
             elif self.operation_mode == 'velocity':
                 self.ctrl_land.consume_target_offset(bf_angle_offset,timestamp)
         else:
-            self.ctrl_land.update()
+            if self.operation_mode == 'velocity':
+                self.ctrl_land.update()
 
 
 
