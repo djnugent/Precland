@@ -24,7 +24,7 @@ def score_clip(file_name,config_file = "Smart_Camera.cnf"):
     score = "["+ file_name+ "]\n"
 
     #run ring detector
-    p = subprocess.Popen('python /home/daniel/visnav/PrecisionLand_lib/Ring_Detector.py -i ' + file_name + ' -f ' + config_file + ' -w True', shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen('python /home/daniel/visnav/PrecisionLand_lib/Ring_Detector.py -i ' + file_name + ' -f ' + config_file, shell = True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     #open key file
     key = open(file_name + 'key.txt', "r").read()
@@ -65,7 +65,8 @@ def score_clip(file_name,config_file = "Smart_Camera.cnf"):
                 if line[2].find('None') == -1: #valid orientation
                     detected_target_with_orient +=1
             else:
-                print "failed image #", i
+                pass
+                #print "failed image #", i
 
 
         elif num == 0.5:
@@ -81,6 +82,8 @@ def score_clip(file_name,config_file = "Smart_Camera.cnf"):
                 false_positives += 1
                 if line[2].find('None') == -1: #valid orientation
                     false_positives_with_orient +=1
+                    print "failed image #", i
+
 
 
 
@@ -89,7 +92,7 @@ def score_clip(file_name,config_file = "Smart_Camera.cnf"):
     score += " Partial targets detected             {2}% -- {0}/{1}\n".format(detected_partial,tot_partial_targets, 100 * detected_partial/tot_partial_targets)
     score += " Partials with orientaion             {2}% -- {0}/{1}\n".format(detected_partial_with_orient,tot_partial_targets, 100 * detected_partial_with_orient/tot_partial_targets)
     score += " False positives                      {2}% -- {0}/{1}\n".format(false_positives,tot_no_targets, 100 * false_positives/tot_no_targets)
-    score += " False positives with orientaion      {2}% -- {0}/{1}\n".format(false_positives_with_orient,tot_no_targets, 100 * false_positives_with_orient/tot_no_targets)
+    score += " False positives with orientaion      {2}% -- {0}/{1}\n\n".format(false_positives_with_orient,tot_no_targets, 100 * false_positives_with_orient/tot_no_targets)
 
     #add score to global count
     global global_tot_valid_targets, global_tot_partial_targets, global_tot_no_targets
@@ -207,7 +210,12 @@ files =["/home/daniel/Videos/flight_0/Smart_Camera-raw-4/",
         "/home/daniel/Videos/flight_1/Smart_Camera-raw-4/",
         "/home/daniel/Videos/flight_2/Smart_Camera-raw-0/",
         "/home/daniel/Videos/flight_3/Smart_Camera-raw-1/",
-        "/home/daniel/Videos/flight_3/Smart_Camera-raw-2/"
+        "/home/daniel/Videos/flight_3/Smart_Camera-raw-2/",
+        "/home/daniel/Videos/flight_4/Smart_Camera-raw-0/",
+        "/home/daniel/Videos/flight_4/Smart_Camera-raw-1/",
+        "/home/daniel/Videos/flight_5/Smart_Camera-raw-3/",
+        "/home/daniel/Videos/flight_5/Smart_Camera-raw-4/",
+        "/home/daniel/Videos/flight_5/Smart_Camera-raw-5/",
         ]
 
 params = np.array([dict(parent= 'algorithm', name= 'eccentricity', bottom= 0.4, top= 0.9, step=0.1),
@@ -221,12 +229,11 @@ params = np.array([dict(parent= 'algorithm', name= 'eccentricity', bottom= 0.4, 
 iter_state = np.zeros(len(params))
 
 
-detailed = ''
-for f in files:
-    detailed += score_clip(f)
-summary = score_batch()
 
-print detailed
+for f in files:
+    detailed = score_clip(f)
+    print detailed
+summary = score_batch()
 print summary
 
 '''

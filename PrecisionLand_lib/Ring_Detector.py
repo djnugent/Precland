@@ -90,14 +90,12 @@ class Ring_Detector(object):
 		# Blur image
 		e1 = cv2.getTickCount()
 		blur = cv2.GaussianBlur(img,(5,5),0)
+		#blur = cv2.bilateralFilter(img,9,75,75)
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
 		self.perf.append(('blur', time))
-
 		filtered = blur
-		#filtered = blur
-		#cv2.imshow("filtered",filtered)
-
+		#cv2.imshow("blur",blur)
 
 		#average brightness
 		avg, null, null, null = cv2.mean(filtered)
@@ -107,11 +105,12 @@ class Ring_Detector(object):
 		e1 = cv2.getTickCount()
 		filtered = cv2.Canny(filtered,avg/2,avg)
 		#filtered = self.auto_canny(filtered)
-
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
 		self.perf.append(('canny()', time))
-		#cv2.imshow('edges',filtered)
+		canny = filtered
+		#cv2.imshow("edge", canny)
+
 
 		#detect circles
 		e1 = cv2.getTickCount()
@@ -134,15 +133,156 @@ class Ring_Detector(object):
 		if len(rings) > 0:
 			e1 = cv2.getTickCount()
 			best_ring = self.best_target(rings)
+			ROI,origin = self.split_image(blur,best_ring)
+			self.decode_target(ROI,best_ring,origin)
+
 			e2 = cv2.getTickCount()
 			time = (e2-e1) / cv2.getTickFrequency() * 1000
 			self.perf.append(('best_ring()', time))
+
 
 		stop = current_milli_time()
 		#self.print_perf()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
+	def decode_target(self,img,ring,origin):
+		#Normilize image
+		bal = self.balance(img,5,1)
+		#average brightness
+		avg, null, null, null = cv2.mean(bal)
+		avg = int(avg)
+		#threshold
+		ret,filtered = cv2.threshold(bal,avg,255,cv2.THRESH_BINARY)
+
+		#extract shape and size of image
+		ellipse = ring.inner_circle.ellipse
+		center = Point(tup = ellipse[0])- origin
+		#center = Point(x = img.shape[1], y = img.shape[0])/2
+		size = Point(tup = ellipse[1])/2
+		angle = ellipse[2]
+
+		#scan image
+		scan = np.zeros((360),np.int8)
+		for deg in range(0,360):
+			rad = math.radians(deg)
+			shift = math.radians(angle)
+			#scan an ellipse
+			radius = size.x * size.y / math.sqrt((size.y*math.sin(rad-shift))**2 + (size.x*math.cos(rad-shift))**2)
+			r0 = int(math.ceil(radius * .6))
+			r1 = int(math.ceil(radius * .8))
+
+			pix = 0.0
+			for r in range(r0,r1):
+				cart = Point(x = r * math.sin(rad),y = -r * math.cos(rad))
+				cart += center
+				cart.x, cart.y = int(round(cart.x)), int(round(cart.y))
+				cart.x, cart.y = max(0,cart.x), max(0,cart.y)
+				cart.x, cart.y = min(cart.x,img.shape[1] - 1), min(cart.y,img.shape[0] - 1)
+				pix += int(filtered[cart.y][cart.x] /255)
+				if r == r0 or r == r1-1:
+					cv2.circle(bal,cart.tuple(),0,color=(127))
+			pix /= r1-r0
+			pix = int(round(pix))
+			scan[deg] = pix
+
+		#denoise scan
+		for i in range(0,360):
+			low = (i - 20) % 360
+			high = (i + 20) % 360 + 1
+			if low > high:
+				scan[i] = int(round(np.average(np.concatenate((scan[low:360], scan[0:high])))))
+			else:
+				scan[i] = int(round(np.average(scan[low:high])))
+
+		if 0.6 > np.average(scan) > 0.4:
+			print "detected"
+			#detect edges
+			edges = []
+			for i in range(0,360):
+				j = (i + 1)%360
+				a = scan[i]
+				b = scan[j]
+				if a == 1 and b == 0:
+					edges.append((j,'falling'))
+				if a == 0 and b == 1 :
+					edges.append((j, 'rising'))
+
+			#detect segments
+			segments = []
+			#print "edges", len(edges)
+			if len(edges) == 6:
+				for i in range(0,6):
+					a = edges[i]
+					b = edges[(i+1)%6]
+					if a[1] == 'rising':
+						bit = 1
+						orientation = a[0]
+						length = None
+						if a[0] > b[0]:
+							length = (360 - a[0]) + b[0]
+						else:
+							length = b[0] - a[0]
+					if a[1] == 'falling':
+						bit = 0
+						orientation = a[0]
+						length = None
+						if a[0] > b[0]:
+							length = (360 - a[0]) + b[0]
+						else:
+							length = b[0] - a[0]
+					segments.append((bit,orientation,length))
+
+				#extract target orientation
+				target_orientation = 0
+				bit_shift = 0
+				for i in range(0,len(segments)):
+					seg = segments[i]
+					bit,orientation,length = seg
+					width = int(round(length/45.0))
+					if width == 2 and bit == 1:
+						target_orientation = orientation
+						bit_shift = i
+
+				#read code
+				bit_count = 7
+				code = 0
+				for i in range(0,len(segments)):
+					seg = segments[(i + bit_shift) % len(segments)]
+					bit,orientation,length = seg
+					width = int(round(length/45.0))
+					for j in range(0,width):
+						code |= bit << bit_count
+						bit_count -= 1
+
+				print "Code: {0}, Orient: {1} degs".format(code,target_orientation)
+
+
+
+		cv2.imshow('roi_filt',filtered)
+		cv2.imshow('roi_bal',bal)
+		cv2.imshow('roi', img)
+
+	def split_image(self,img,ring):
+
+		#full image
+		(height, width) = img.shape
+
+		#border around contour
+		cnt = ring.inner_circle.contour
+		x,y,w,h = cv2.boundingRect(cnt)
+		center = ring.inner_circle.center
+
+		#crop image
+		x0 = max(center.x - w/2,0)
+		x1 = min(center.x + w/2,width)
+		y0 = max(center.y - h/2,0)
+		y1 = min(center.y + h/2,height)
+
+		roi = img[y0:y1, x0:x1]
+		origin = Point(center.x-w/2,center.y-h/2)
+
+		return roi, origin
 
 	#detect_rings- Find circles that are nested inside of each other
 	def detect_rings(self,rawCircles,min_ratio,max_ratio):
@@ -154,11 +294,14 @@ class Ring_Detector(object):
 				if i != j:
 					circle1 = rawCircles[i]
 					circle2 = rawCircles[j]
+
+
 					#average major and minor axises
 					radius1 = circle1.radius
 					radius2 = circle2.radius
 
 					distance = circle1.center.distance_to(circle2.center)
+
 
 					#check if a circle is nested within another circle
 					if distance < abs(radius1 - radius2):
@@ -173,6 +316,7 @@ class Ring_Detector(object):
 							rings[ring_count] = Ring(circle2, circle1)
 							ring_count += 1
 							break
+
 		#remove null objects
 		rings  = np.resize(rings,ring_count)
 
@@ -185,7 +329,6 @@ class Ring_Detector(object):
 
 		#locate contours
 		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-		#cv2.imshow("cont",img)
 
 		#turn contours into circles
 		circles = np.empty((len(contours)),object)
@@ -223,7 +366,7 @@ class Ring_Detector(object):
 				if (c_area / e_area) > area_ratio:
 					center = Point(int(ellipse[0][0]), int(ellipse[0][1]))
 					radius = int((ellipse[1][0] + ellipse[1][0]) /4.0) #average  and diameter -> radius
-					return Circle(center,radius,contour)
+					return Circle(center,radius,contour,ellipse)
 		return None
 
 	#balance - improve contrast and adjust brightness in image
@@ -250,7 +393,6 @@ class Ring_Detector(object):
 			return img
 		else:
 			return np.zeros((img.shape[0],img.shape[1]), np.uint8)
-
 
 	def auto_canny(self, image, sigma=0.33):
 		# compute the median of the single channel pixel intensities
@@ -289,6 +431,7 @@ class Ring_Detector(object):
 
 		return best_target
 
+
 	def print_perf(self):
 		for ent in self.perf:
 			print ent[0], ent[1]
@@ -297,10 +440,11 @@ class Ring_Detector(object):
 
 class Circle(object):
 
-	def __init__(self, center, radius, contour = None):
+	def __init__(self, center, radius, contour = None, ellipse = None):
 		self.center = center
 		self.radius = radius
 		self.contour = contour
+		self.ellipse = ellipse
 
 	def __str__(self):
 		return "Center: {0} Radius: {1}".format(self.center,self.radius)
@@ -391,7 +535,7 @@ if __name__ == "__main__":
 
 		writer = ImageWriter(args.input.replace('raw','gui'))
 
-		
+
 	#video source
 	cam = None
 
@@ -405,13 +549,14 @@ if __name__ == "__main__":
 	frame_id = 0
 	if cam is not None and cam.isOpened():
 		while True:
+			#print frame_id
 			ret, img = cam.read()
 			if(img is not None and ret == True):
 				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
 
 				#show results
-				rend_Image = gui.add_ring_highlights(img, ring = results[2])#results[3]),results[2])
+				rend_Image = gui.add_ring_highlights(img, results[3],results[2])#ring = results[2])
 				yaw , radius = None, None
 				if results[2] is not None:
 					radius = results[2].radius
@@ -423,8 +568,8 @@ if __name__ == "__main__":
 				if(args.write):
 					writer.write(rend_Image)
 
-				#cv2.imshow('gui', rend_Image)
-				#cv2.waitKey(0)
+				cv2.imshow('gui', rend_Image)
+				cv2.waitKey(1)
 				print status_text.replace('\n', ', ')
 
 			else:
