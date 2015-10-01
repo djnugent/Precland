@@ -35,6 +35,13 @@ from Common.VN_config import VN_config
 from Common.VN_util import *
 
 
+perf = []
+def print_perf():
+	global perf
+	for ent in perf:
+		print ent[0], ent[1]
+	perf = []
+
 class Ring_Detector(object):
 
 
@@ -56,7 +63,6 @@ class Ring_Detector(object):
 		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
 		self.res_reduction = VN_config.get_integer('algorithm', 'res_reduction',1)
 
-		self.perf = []
 
 
 
@@ -93,7 +99,7 @@ class Ring_Detector(object):
 		#blur = cv2.bilateralFilter(img,9,75,75)
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		self.perf.append(('blur', time))
+		perf.append(('blur', time))
 		filtered = blur
 		#cv2.imshow("blur",blur)
 
@@ -107,7 +113,7 @@ class Ring_Detector(object):
 		#filtered = self.auto_canny(filtered)
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		self.perf.append(('canny()', time))
+		perf.append(('canny()', time))
 		canny = filtered
 		#cv2.imshow("edge", canny)
 
@@ -117,7 +123,7 @@ class Ring_Detector(object):
 		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, min_radius = self.min_radius)
 		e2 = cv2.getTickCount()
 		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		self.perf.append(('detect_circles()', time))
+		perf.append(('detect_circles()', time))
 
 		rings = []
 		best_ring = None
@@ -127,38 +133,229 @@ class Ring_Detector(object):
 			rings = self.detect_rings(circles,self.min_ring_ratio,self.max_ring_ratio)
 			e2 = cv2.getTickCount()
 			time = (e2-e1) / cv2.getTickFrequency() * 1000
-			self.perf.append(('detect_rings()', time))
+			perf.append(('detect_rings()', time))
 
+		e1 = cv2.getTickCount()
 		#find smallest ring with orientation(if available)
-		if len(rings) > 0:
-			e1 = cv2.getTickCount()
-			best_ring = self.best_target(rings)
-			ROI,origin = self.split_image(blur,best_ring)
-			self.decode_target(ROI,best_ring,origin)
+		min_code = 256
+		for i in range(0,len(rings)):
+			ring = rings[i]
+			bal = ring.decode(blur)
+			if ring.code < min_code:
+				best_ring = ring
+			cv2.imshow("roi{0}".format(i),bal)
 
-			e2 = cv2.getTickCount()
-			time = (e2-e1) / cv2.getTickFrequency() * 1000
-			self.perf.append(('best_ring()', time))
+
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('decodes()', time))
 
 
 		stop = current_milli_time()
-		#self.print_perf()
+		print_perf()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
-	def decode_target(self,img,ring,origin):
+
+	#detect_rings- Find circles that are nested inside of each other
+	def detect_rings(self,rawCircles,min_ratio,max_ratio, no_overlap = True):
+		size = len(rawCircles)
+		rings = np.empty(size, object)
+		ring_count = 0
+		for i in xrange(0,size):
+			for j in xrange(i, size):
+				if i != j:
+					circle1 = rawCircles[i]
+					circle2 = rawCircles[j]
+
+
+					#average major and minor axises
+					radius1 = circle1.radius
+					radius2 = circle2.radius
+
+					distance = circle1.center.distance_to(circle2.center)
+
+
+					#check if a circle is nested within another circle and is the correct size relative to the other
+					if distance < abs(radius1 - radius2):
+						new_ring = None
+						if (radius1 < radius2) and (radius1 * 1.0 /radius2 > min_ratio) and (radius1 * 1.0 /radius2 < max_ratio):
+							#small circle, big circle
+							new_ring = Ring(circle1, circle2)
+
+						elif (radius1 > radius2) and (radius2 * 1.0 / radius1 > min_ratio) and (radius2 * 1.0 / radius1 < max_ratio):
+							#small circle, big circle
+							new_ring = Ring(circle2, circle1)
+
+					 	if new_ring is not None:
+							#check for overlap if one or more rings already exists
+							if no_overlap and ring_count > 0:
+								bad_rings = []
+								drop_new = False
+								for k in range(0,len(rings)):
+									exist_ring = rings[k]
+									if exist_ring is None:
+											break
+									else:
+										#if rings overlap then keep the one with smallest inner radius
+										distance = exist_ring.center.distance_to(new_ring.center)
+										if distance < (exist_ring.outer_circle.radius + new_ring.outer_circle.radius):
+											if exist_ring.inner_circle.radius > new_ring.inner_circle.radius:
+												bad_rings.append(k)
+											else:
+												drop_new = True
+								#remove overlapping rings
+								if not drop_new:
+									#remove bad rings
+									rings = np.delete(rings,bad_rings)
+									ring_count -= len(bad_rings)
+									#add new ring
+									rings[ring_count] = new_ring
+									ring_count += 1
+								#else dont add new ring
+								break;
+							else:
+								rings[ring_count] = new_ring
+								ring_count += 1
+							break
+
+		#remove null objects
+		rings  = np.resize(rings,ring_count)
+
+		return rings
+
+
+	def detect_circles(self, orig, eccentricity, area_ratio, min_radius = 0, max_radius = 500000):
+
+		img = np.copy(orig)
+
+		#locate contours
+		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+
+		#turn contours into circles
+		circles = np.empty((len(contours)),object)
+		circlesCnt = 0
+		for i in xrange(0,len(contours)):
+			contour = contours[i]
+
+			circle = self.fit_circle(contour, eccentricity, area_ratio, min_radius, max_radius)
+			if circle is not None:
+				circles[circlesCnt] = circle
+				circlesCnt += 1
+		circles = np.resize(circles,circlesCnt)
+		return circles
+
+
+
+
+	def fit_circle(self, contour, eccentricity, area_ratio,min_radius = 0, max_radius = 500000):
+		#convert to convex hull
+		hull = cv2.convexHull(contour)
+		min_area = math.pi * min_radius * min_radius
+		max_area = math.pi * max_radius * max_radius
+		contour_area = cv2.contourArea(hull)
+
+		#check for a shape of a certain size and corner resolution
+		if len(hull) > 4 and contour_area > min_area and contour_area < max_area:
+
+			#fit an ellipse
+			ellipse = cv2.fitEllipse(hull)
+			#check for a circular ellipse
+			if ellipse[1][0] * 1.0/ ellipse[1][1] > eccentricity:
+				#compare area of raw hull vs area of ellipse to ellinate objects with corners
+				e_area = (ellipse[1][0]/2.0) * (ellipse[1][1]/2.0) * math.pi
+				c_area = cv2.contourArea(hull)
+				if (c_area / e_area) > area_ratio:
+					center = Point(int(ellipse[0][0]), int(ellipse[0][1]))
+					radius = int((ellipse[1][0] + ellipse[1][0]) /4.0) #average  and diameter -> radius
+					return Circle(center,radius,contour,ellipse)
+		return None
+
+
+
+
+
+class Circle(object):
+
+	def __init__(self, center, radius, contour = None, ellipse = None):
+		self.center = center
+		self.radius = radius
+		self.contour = contour
+		self.ellipse = ellipse
+
+	def __str__(self):
+		return "Center: {0} Radius: {1}".format(self.center,self.radius)
+
+
+class Ring(object):
+	def __init__(self, inner_circle, outer_circle, center = None, radius = None, orientation = None, code = None):
+		self.inner_circle = inner_circle
+		self.outer_circle = outer_circle
+		self.center = center
+		self.radius = radius
+		self.orientation = orientation
+		self.code = code
+		self.calc_radius(0)
+		self.calc_center(0)
+
+	def calc_orientation(self, bump_ratio = 0.9):
+		inner_contour = self.inner_circle.contour
+		min_radius = self.inner_circle.radius * 1.2
+		closest_vertex = None
+		actual_bump_ratio = 1
+
+		#look for the point closest to the center
+		for vertex in inner_contour:
+			vertex = Point(tup = vertex[0])
+			dist = vertex.distance_to(self.inner_circle.center)
+			if dist < min_radius and (dist * 1.0 / self.inner_circle.radius) < bump_ratio:
+				min_radius = dist
+				closest_vertex = vertex
+
+		if closest_vertex is not None:
+			self.orientation = self.inner_circle.center.angle_to(closest_vertex)
+
+	def calc_radius(self, type):
+		if type == 0:
+			self.radius = self.inner_circle.radius
+		elif type == 1:
+			self.radius = self.outer_circle.radius
+		elif type == 2:
+			self.radius = (self.inner_circle.radius + self.outer_circle.radius) / 2
+
+	def calc_center(self, type):
+		if type == 0:
+			self.center = self.inner_circle.center
+		elif type == 1:
+			self.center = self.outer_circle.center
+		elif type == 2:
+			self.center = (self.inner_circle.center + self.outer_circle.center) / 2
+
+	def get_angular_offset(self, img_width, img_height, hfov, vfov):
+		x_pixel = self.center.x - (img_width/2.0)
+		y_pixel = self.center.y - (img_height/2.0) #y-axis is inverted??? Works with arducopter
+
+		#convert target location to angular radians
+		x_angle = x_pixel * (hfov / img_width) * (math.pi/180.0)
+		y_angle = y_pixel * (vfov / img_height) * (math.pi/180.0)
+		return Point3(x_angle,y_angle, self.orientation)
+
+	def decode(self,img):
+
+		#find border around contour and crop a ROI
+		x,y,w,h = cv2.boundingRect(self.inner_circle.contour)
+		img,origin = roi(img,self.inner_circle.center, Point(x = w, y = h))
+
 		#Normilize image
-		bal = self.balance(img,5,1)
-		#average brightness
+		bal = balance(img,5,1)
+		#adaptive threshold
 		avg, null, null, null = cv2.mean(bal)
 		avg = int(avg)
-		#threshold
 		ret,filtered = cv2.threshold(bal,avg,255,cv2.THRESH_BINARY)
 
-		#extract shape and size of image
-		ellipse = ring.inner_circle.ellipse
+		#extract shape,size,location of image
+		ellipse = self.inner_circle.ellipse
 		center = Point(tup = ellipse[0])- origin
-		#center = Point(x = img.shape[1], y = img.shape[0])/2
 		size = Point(tup = ellipse[1])/2
 		angle = ellipse[2]
 
@@ -238,270 +435,26 @@ class Ring_Detector(object):
 				bit_shift = 0
 				for i in range(0,len(segments)):
 					seg = segments[i]
-					bit,orientation,length = seg
+					bit,orient,length = seg
 					width = int(round(length/45.0))
 					if width == 2 and bit == 1:
-						target_orientation = orientation
+						self.orientation = orient
 						bit_shift = i
 
 				#read code
 				bit_count = 7
-				code = 0
+				self.code = 0
 				for i in range(0,len(segments)):
 					seg = segments[(i + bit_shift) % len(segments)]
 					bit,orientation,length = seg
 					width = int(round(length/45.0))
 					for j in range(0,width):
-						code |= bit << bit_count
+						self.code |= bit << bit_count
 						bit_count -= 1
 
-				print "Code: {0}, Orient: {1} degs".format(code,target_orientation)
+				print "Code: {0}, Orient: {1} degs".format(self.code,self.orientation)
 
-
-
-		cv2.imshow('roi_filt',filtered)
-		cv2.imshow('roi_bal',bal)
-		cv2.imshow('roi', img)
-
-	def split_image(self,img,ring):
-
-		#full image
-		(height, width) = img.shape
-
-		#border around contour
-		cnt = ring.inner_circle.contour
-		x,y,w,h = cv2.boundingRect(cnt)
-		center = ring.inner_circle.center
-
-		#crop image
-		x0 = max(center.x - w/2,0)
-		x1 = min(center.x + w/2,width)
-		y0 = max(center.y - h/2,0)
-		y1 = min(center.y + h/2,height)
-
-		roi = img[y0:y1, x0:x1]
-		origin = Point(center.x-w/2,center.y-h/2)
-
-		return roi, origin
-
-	#detect_rings- Find circles that are nested inside of each other
-	def detect_rings(self,rawCircles,min_ratio,max_ratio):
-		size = len(rawCircles)
-		rings = np.empty(size, object)
-		ring_count = 0
-		for i in xrange(0,size):
-			for j in xrange(i, size):
-				if i != j:
-					circle1 = rawCircles[i]
-					circle2 = rawCircles[j]
-
-
-					#average major and minor axises
-					radius1 = circle1.radius
-					radius2 = circle2.radius
-
-					distance = circle1.center.distance_to(circle2.center)
-
-
-					#check if a circle is nested within another circle
-					if distance < abs(radius1 - radius2):
-						if (radius1 < radius2) and (radius1 * 1.0 /radius2 > min_ratio) and (radius1 * 1.0 /radius2 < max_ratio):
-							#small circle, big circle
-							rings[ring_count] = Ring(circle1, circle2)
-							ring_count += 1
-							break
-
-						elif (radius1 > radius2) and (radius2 * 1.0 / radius1 > min_ratio) and (radius2 * 1.0 / radius1 < max_ratio):
-							#small circle, big circle
-							rings[ring_count] = Ring(circle2, circle1)
-							ring_count += 1
-							break
-
-		#remove null objects
-		rings  = np.resize(rings,ring_count)
-
-		return rings
-
-
-	def detect_circles(self, orig, eccentricity, area_ratio, min_radius = 0, max_radius = 500000):
-
-		img = np.copy(orig)
-
-		#locate contours
-		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-
-		#turn contours into circles
-		circles = np.empty((len(contours)),object)
-		circlesCnt = 0
-		for i in xrange(0,len(contours)):
-			contour = contours[i]
-
-			circle = self.fit_circle(contour, eccentricity, area_ratio, min_radius, max_radius)
-			if circle is not None:
-				circles[circlesCnt] = circle
-				circlesCnt += 1
-		circles = np.resize(circles,circlesCnt)
-		return circles
-
-
-
-
-	def fit_circle(self, contour, eccentricity, area_ratio,min_radius = 0, max_radius = 500000):
-		#convert to convex hull
-		hull = cv2.convexHull(contour)
-		min_area = math.pi * min_radius * min_radius
-		max_area = math.pi * max_radius * max_radius
-		contour_area = cv2.contourArea(hull)
-
-		#check for a shape of a certain size and corner resolution
-		if len(hull) > 4 and contour_area > min_area and contour_area < max_area:
-
-			#fit an ellipse
-			ellipse = cv2.fitEllipse(hull)
-			#check for a circular ellipse
-			if ellipse[1][0] * 1.0/ ellipse[1][1] > eccentricity:
-				#compare area of raw hull vs area of ellipse to ellinate objects with corners
-				e_area = (ellipse[1][0]/2.0) * (ellipse[1][1]/2.0) * math.pi
-				c_area = cv2.contourArea(hull)
-				if (c_area / e_area) > area_ratio:
-					center = Point(int(ellipse[0][0]), int(ellipse[0][1]))
-					radius = int((ellipse[1][0] + ellipse[1][0]) /4.0) #average  and diameter -> radius
-					return Circle(center,radius,contour,ellipse)
-		return None
-
-	#balance - improve contrast and adjust brightness in image
-	#Created By: Tobias Shapinsky
-	def balance(self,orig,min_range,res_reduction):
-
-		img = np.copy(orig)
-		#get min, max and range of image
-		min_v = np.percentile(img,5)
-		max_v = np.percentile(img,95)
-
-		#clip extremes
-		img.clip(min_v,max_v, img)
-
-		#scale image so that brightest pixel is 255 and darkest is 0
-		range_v = max_v - min_v
-		if(range_v > min_range):
-			img -= min_v
-			img *= (255.0/(range_v))
-			'''
-			img /= res_reduction
-			img *= res_reduction
-			'''
-			return img
-		else:
-			return np.zeros((img.shape[0],img.shape[1]), np.uint8)
-
-	def auto_canny(self, image, sigma=0.33):
-		# compute the median of the single channel pixel intensities
-		v = np.median(image)
-
-		# apply automatic Canny edge detection using the computed median
-		lower = int(max(0, (1.0 - sigma) * v))
-		upper = int(min(255, (1.0 + sigma) * v))
-		edged = cv2.Canny(image, lower, upper)
-
-		# return the edged image
-		return edged
-
-
-	#smallest oriented target
-	def best_target(self, rings):
-		min_rad = 99999999
-		min_index = 0
-		has_orient = False
-		best_target = None
-		for r in rings:
-			if has_orient == False:
-				if r.is_valid():
-					best_target = r
-					min_rad = best_target.radius
-					has_orient = True
-				elif r.radius < min_rad:
-					best_target = r
-					min_rad = best_target.radius
-
-			elif has_orient == True:
-
-				if r.is_valid() and r.radius < min_rad:
-					best_target = r
-					min_rad = best_target.radius
-
-		return best_target
-
-
-	def print_perf(self):
-		for ent in self.perf:
-			print ent[0], ent[1]
-		self.perf = []
-
-
-class Circle(object):
-
-	def __init__(self, center, radius, contour = None, ellipse = None):
-		self.center = center
-		self.radius = radius
-		self.contour = contour
-		self.ellipse = ellipse
-
-	def __str__(self):
-		return "Center: {0} Radius: {1}".format(self.center,self.radius)
-
-
-class Ring(object):
-	def __init__(self, inner_circle, outer_circle, center = None, radius = None, orientation = None):
-		self.inner_circle = inner_circle
-		self.outer_circle = outer_circle
-		self.center = center
-		self.radius = radius
-		self.orientation = orientation
-		self.calc_radius(0)
-		self.calc_center(0)
-		self.calc_orientation()
-
-	def calc_orientation(self, bump_ratio = 0.9):
-		inner_contour = self.inner_circle.contour
-		min_radius = self.inner_circle.radius * 1.2
-		closest_vertex = None
-		actual_bump_ratio = 1
-
-		#look for the point closest to the center
-		for vertex in inner_contour:
-			vertex = Point(tup = vertex[0])
-			dist = vertex.distance_to(self.inner_circle.center)
-			if dist < min_radius and (dist * 1.0 / self.inner_circle.radius) < bump_ratio:
-				min_radius = dist
-				closest_vertex = vertex
-
-		if closest_vertex is not None:
-			self.orientation = self.inner_circle.center.angle_to(closest_vertex)
-
-	def calc_radius(self, type):
-		if type == 0:
-			self.radius = self.inner_circle.radius
-		elif type == 1:
-			self.radius = self.outer_circle.radius
-		elif type == 2:
-			self.radius = (self.inner_circle.radius + self.outer_circle.radius) / 2
-
-	def calc_center(self, type):
-		if type == 0:
-			self.center = self.inner_circle.center
-		elif type == 1:
-			self.center = self.outer_circle.center
-		elif type == 2:
-			self.center = (self.inner_circle.center + self.outer_circle.center) / 2
-
-	def get_angular_offset(self, img_width, img_height, hfov, vfov):
-		x_pixel = self.center.x - (img_width/2.0)
-		y_pixel = self.center.y - (img_height/2.0) #y-axis is inverted??? Works with arducopter
-
-		#convert target location to angular radians
-		x_angle = x_pixel * (hfov / img_width) * (math.pi/180.0)
-		y_angle = y_pixel * (vfov / img_height) * (math.pi/180.0)
-		return Point3(x_angle,y_angle, self.orientation)
+		return bal
 
 	def is_valid(self):
 		return (self.orientation is not None)
