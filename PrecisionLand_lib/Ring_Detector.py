@@ -298,23 +298,6 @@ class Ring(object):
 		self.calc_radius(0)
 		self.calc_center(0)
 
-	def calc_orientation(self, bump_ratio = 0.9):
-		inner_contour = self.inner_circle.contour
-		min_radius = self.inner_circle.radius * 1.2
-		closest_vertex = None
-		actual_bump_ratio = 1
-
-		#look for the point closest to the center
-		for vertex in inner_contour:
-			vertex = Point(tup = vertex[0])
-			dist = vertex.distance_to(self.inner_circle.center)
-			if dist < min_radius and (dist * 1.0 / self.inner_circle.radius) < bump_ratio:
-				min_radius = dist
-				closest_vertex = vertex
-
-		if closest_vertex is not None:
-			self.orientation = self.inner_circle.center.angle_to(closest_vertex)
-
 	def calc_radius(self, type):
 		if type == 0:
 			self.radius = self.inner_circle.radius
@@ -353,71 +336,90 @@ class Ring(object):
 		avg = int(avg)
 		ret,filtered = cv2.threshold(bal,avg,255,cv2.THRESH_BINARY)
 
+		e1 = cv2.getTickCount()
+
 		#extract shape,size,location of image
 		ellipse = self.inner_circle.ellipse
-		center = Point(tup = ellipse[0])- origin
+		center = Point(tup = ellipse[0]) - origin
 		size = Point(tup = ellipse[1])/2
-		angle = ellipse[2]
+		angle = np.radians(ellipse[2])
 
+		steps = 72
+		code_length = 6
 		#scan image
-		scan = np.zeros((360),np.int8)
-		for deg in range(0,360):
-			rad = math.radians(deg)
-			shift = math.radians(angle)
+		scan = np.zeros((steps),np.int8)
+		for deg in range(0,steps):
+			rad = math.radians(deg * 360.0 / steps)
 			#scan an ellipse
-			radius = size.x * size.y / math.sqrt((size.y*math.sin(rad-shift))**2 + (size.x*math.cos(rad-shift))**2)
-			r0 = int(math.ceil(radius * .6))
-			r1 = int(math.ceil(radius * .8))
+			radius = size.x * size.y / np.sqrt(math.pow(size.y*np.sin(rad-angle),2) + math.pow(size.x*np.cos(rad-angle),2))
+
+			scan_lines = (0.65,0.7,0.76,0.8)
 
 			pix = 0.0
-			for r in range(r0,r1):
-				cart = Point(x = r * math.sin(rad),y = -r * math.cos(rad))
+			for i in scan_lines:
+				r = int(round(radius * i))
+				cart = Point(x = r * np.sin(rad),y = -r * np.cos(rad))
 				cart += center
 				cart.x, cart.y = int(round(cart.x)), int(round(cart.y))
 				cart.x, cart.y = max(0,cart.x), max(0,cart.y)
 				cart.x, cart.y = min(cart.x,img.shape[1] - 1), min(cart.y,img.shape[0] - 1)
-				pix += int(filtered[cart.y][cart.x] /255)
-				if r == r0 or r == r1-1:
-					cv2.circle(bal,cart.tuple(),0,color=(127))
-			pix /= r1-r0
-			pix = int(round(pix))
-			scan[deg] = pix
+				pix += filtered.item(cart.y,cart.x) /255.0
+				#cv2.circle(bal,cart.tuple(),0,color=(127))
 
+			pix /= len(scan_lines)
+			pix = int(round(pix))
+			scan.itemset(deg,pix)
+		print scan
+
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('scan()', time))
+
+		e1 = cv2.getTickCount()
 		#denoise scan
-		for i in range(0,360):
-			low = (i - 20) % 360
-			high = (i + 20) % 360 + 1
+		for i in range(0,steps):
+			#compare value to neighbors
+			depth = code_length / (3 * steps)
+			low = (i - depth) % steps
+			high = (i + depth) % steps + 1
 			if low > high:
-				scan[i] = int(round(np.average(np.concatenate((scan[low:360], scan[0:high])))))
+				scan.itemset(i,int(round(np.average(np.concatenate((scan[low:steps], scan[0:high]))))))
 			else:
-				scan[i] = int(round(np.average(scan[low:high])))
+				scan.itemset(i,int(round(np.average(scan[low:high]))))
+
+		e2 = cv2.getTickCount()
+		time = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('denoise()', time))
 
 		if 0.6 > np.average(scan) > 0.4:
-			print "detected"
+			e1 = cv2.getTickCount()
 			#detect edges
 			edges = []
-			for i in range(0,360):
-				j = (i + 1)%360
-				a = scan[i]
-				b = scan[j]
+			for i in range(0,steps):
+				j = (i + 1)%steps
+				a = scan.item(i)
+				b = scan.item(j)
 				if a == 1 and b == 0:
 					edges.append((j,'falling'))
 				if a == 0 and b == 1 :
 					edges.append((j, 'rising'))
+			e2 = cv2.getTickCount()
+			time = (e2-e1) / cv2.getTickFrequency() * 1000
+			perf.append(('detect edges()', time))
 
 			#detect segments
 			segments = []
-			#print "edges", len(edges)
-			if len(edges) == 6:
-				for i in range(0,6):
+			if len(edges) == code_length:
+				e1 = cv2.getTickCount()
+				for i in range(0,code_length):
 					a = edges[i]
-					b = edges[(i+1)%6]
+					b = edges[(i+1)%code_length]
 					if a[1] == 'rising':
 						bit = 1
 						orientation = a[0]
 						length = None
 						if a[0] > b[0]:
-							length = (360 - a[0]) + b[0]
+							length = (steps - a[0]) + b[0]
 						else:
 							length = b[0] - a[0]
 					if a[1] == 'falling':
@@ -425,33 +427,49 @@ class Ring(object):
 						orientation = a[0]
 						length = None
 						if a[0] > b[0]:
-							length = (360 - a[0]) + b[0]
+							length = (steps - a[0]) + b[0]
 						else:
 							length = b[0] - a[0]
 					segments.append((bit,orientation,length))
+					e2 = cv2.getTickCount()
+					time = (e2-e1) / cv2.getTickFrequency() * 1000
+					perf.append(('detect segments()', time))
 
+				e1 = cv2.getTickCount()
 				#extract target orientation
 				target_orientation = 0
 				bit_shift = 0
 				for i in range(0,len(segments)):
 					seg = segments[i]
 					bit,orient,length = seg
-					width = int(round(length/45.0))
+					#round up > 0.7
+					m = math.modf(length* 8.0/steps)
+					width = int(m[1]) + (1 if m[0] > 0.7 else 0)
 					if width == 2 and bit == 1:
-						self.orientation = orient
+						self.orientation = orient * 360.0/steps
 						bit_shift = i
 
+				e2 = cv2.getTickCount()
+				time = (e2-e1) / cv2.getTickFrequency() * 1000
+				perf.append(('target_orientation()', time))
+
+				e1 = cv2.getTickCount()
 				#read code
 				bit_count = 7
 				self.code = 0
 				for i in range(0,len(segments)):
 					seg = segments[(i + bit_shift) % len(segments)]
 					bit,orientation,length = seg
-					width = int(round(length/45.0))
+					width = int(round(length * 8.0/steps))
+					print length,width
+
 					for j in range(0,width):
 						self.code |= bit << bit_count
 						bit_count -= 1
 
+				e2 = cv2.getTickCount()
+				time = (e2-e1) / cv2.getTickFrequency() * 1000
+				perf.append(('read_code()', time))
 				print "Code: {0}, Orient: {1} degs".format(self.code,self.orientation)
 
 		return bal
