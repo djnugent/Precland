@@ -94,9 +94,9 @@ class VisNavVideo:
             if(self.camera_index == 45): #PX4flow sensor
                 self.camera = flow_cam
             else: #generic video capture device
-                self.camera = cv2.VideoCapture(index)
-                self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
-                self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
+                self.camera = cv2.VideoCapture("/home/daniel/shared/sololink.sdp")
+                #self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
+                #self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
 
             # check we can connect to camera
             if not self.camera.isOpened():

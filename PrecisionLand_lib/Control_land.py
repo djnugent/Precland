@@ -14,7 +14,7 @@ class Control_land():
         self.decent_vel = 0
         self.angular_offset = None
         self.timestamp = 0
-        self.scalar = 1
+        self.scalar = 1.5
         self.first_detect = 1
 
 
