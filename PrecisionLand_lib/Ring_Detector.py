@@ -464,7 +464,7 @@ class Ring(object):
 					print length,width
 
 					for j in range(0,width):
-						self.code |= bit << bit_count
+						self.code |= bit << abs(bit_count) #FIXME neg bitcount
 						bit_count -= 1
 
 				e2 = cv2.getTickCount()
@@ -487,7 +487,8 @@ if __name__ == "__main__":
 	#parse arguments
 	parser = argparse.ArgumentParser(description="Run Ring_Detector")
 	#optional arguments
-	parser.add_argument('-i', '--input', default= None, help='use a video filename as an input instead of a webcam')
+	parser.add_argument('-c', '--camera', default=0, help='Camera source: index, file, or stream')
+	parser.add_argument('-i', '--input', default= None, help='use an image folder as an input instead of a camera input')
 	parser.add_argument('-f', '--file', default='Smart_Camera.cnf', help='load a config file other than the default')
 	parser.add_argument('-w', '--write', default=False)
 
@@ -511,7 +512,7 @@ if __name__ == "__main__":
 	cam = None
 
 	if args.input is None:
-		cam = flow_cam
+		cam = cv2.VideoCapture(args.camera)
 	else:
 		cam = ImageReader(args.input)
 
