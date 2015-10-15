@@ -57,7 +57,7 @@ class PrecisionLand(object):
         VN_config.get_file('Smart_Camera')
 
         #get camera specs
-        self.camera_index = VN_config.get_integer('camera','index',0)
+        self.camera_src = VN_config.get_string('camera','source',"0")
         self.camera_width = VN_config.get_integer('camera', 'width', 640)
         self.camera_height = VN_config.get_integer('camera', 'height', 480)
         self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72)
@@ -108,7 +108,7 @@ class PrecisionLand(object):
             #sim.set_target_location(Location(0,0,0))
 
         else:
-            VN_video.start_capture(self.camera_index)
+            VN_video.start_capture(self.camera_src)
 
 
         #create an image processor
@@ -154,7 +154,7 @@ class PrecisionLand(object):
                     altitude = location.alt
                     timestamp = 0
 
-                elif self.camera_index == 45: #flow
+                elif self.camera_src == "PX4flow": #flow
                     cam = VN_video.get_camera()
                     timestamp = cam.get_timestamp()
                     '''

@@ -28,7 +28,7 @@ class VisNavVideo:
     def __init__(self):
 
         # get which camera we will use
-        self.camera_index = VN_config.get_integer('camera','index',0)
+        self.camera_src = VN_config.get_string('camera','source',"0")
 
 
         # get image resolution
@@ -84,19 +84,23 @@ class VisNavVideo:
         return "SmartCameraVideo Object W:%d H:%d" % (self.img_width, self.img_height)
 
     # get_camera - initialises camera and returns VideoCapture object
-    def get_camera(self,index=0):
+    def get_camera(self,src="0"):
         if self.camera is not None:
             return self.camera
         else:
             VN_logger.text(VN_logger.GENERAL, 'Starting Camera....')
 
             # setup video capture
-            if(self.camera_index == 45): #PX4flow sensor
+            #PX4flow sensor
+            if(src == "PX4flow"):
                 self.camera = flow_cam
-            else: #generic video capture device
-                self.camera = cv2.VideoCapture("/home/daniel/shared/sololink.sdp")
-                #self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,self.img_width)
-                #self.camera.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,self.img_height)
+
+            #generic video capture device
+            else:
+                try:
+                    self.camera = cv2.VideoCapture(int(src))
+                except ValueError:
+                    self.camera = cv2.VideoCapture(src)
 
             # check we can connect to camera
             if not self.camera.isOpened():
@@ -154,10 +158,10 @@ class VisNavVideo:
             self.proc.join()
         #no clean up required with regular capture
 
-    def start_capture(self,index = 0):
+    def start_capture(self,src = "0"):
         #make sure a camera is intialized
         if self.camera is None:
-            self.get_camera(index)
+            self.get_camera(src)
 
         #background capture is desired
         if self.background_capture:
@@ -221,7 +225,7 @@ class VisNavVideo:
         #self.get_camera(0)
 
         # start background process
-        self.start_capture(self.camera_index)
+        self.start_capture(self.camera_src)
 
         #did we start background capture
         print 'Background capture {0}'.format(self.is_backgroundCap)
