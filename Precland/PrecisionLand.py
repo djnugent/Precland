@@ -11,6 +11,10 @@ import numpy as np
 import multiprocessing
 from pymavlink.mavutil import mavlink
 
+#Add script directory to path
+script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+sys.path.append(script_dir)
+
 #CV IMPORTS
 from cv_utils.config import Config
 from cv_utils.video import Video
@@ -150,12 +154,12 @@ class PrecisionLand(object):
 
                 # grab an image
                 frame = None
-                capStart = time.time() * 1000
+                capStart = int(time.time() * 1000)
                 if(self.use_simulator):
-                    frame = self.sim.get_frame()
+                    ret,frame = self.sim.get_frame()
                 else:
-                    frame = video.get_image()
-                capStop = time.time() * 1000
+                    ret,frame = self.video.get_image()
+                capStop = int(time.time() * 1000)
 
                 #grab additional info
                 altitude = 0
@@ -165,7 +169,7 @@ class PrecisionLand(object):
                     timestamp = 0
 
                 elif self.camera_src == "PX4flow": #flow
-                    cam = video.get_camera()
+                    cam = self.video.get_camera()
                     timestamp = cam.get_timestamp()
                     '''
                     altitude = cam.get_lidar()
@@ -185,7 +189,7 @@ class PrecisionLand(object):
                     timestamp = 0
 
                 #multicore enhancements
-                if self.cores_processing > 1:
+                if self.dispatcher.cores_processing > 1:
                     #update capture time
                     self.dispatcher.update_capture_time(capStop-capStart)
 
@@ -232,7 +236,7 @@ class PrecisionLand(object):
         #terminate program
         self.logger.text(self.logger.GENERAL, 'Vehicle disconnected, Program Terminated')
         if(self.use_simulator == False):
-            video.stop_capture()
+            self.video.stop_capture()
 
 
 
@@ -282,11 +286,9 @@ class PrecisionLand(object):
                 veh_home = self.veh_control.get_home()
                 veh_att = self.veh_control.get_attitude()#timestamp)
 
-                loc = camera_to_relative(bf_angle_offset,veh_loc,veh_att,altitude,veh_home)
-                x_targ, y_targ = loc.x, loc.y
-                coord_frame = mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+                loc = camera_to_global(bf_angle_offset,veh_loc,veh_att,altitude)
                 #send commands to autopilot
-                self.veh_control.report_landing_target(timestamp,coord_frame,x_targ, y_targ,altitude,0,0)
+                self.veh_control.get_vehicle().commands.goto(loc)
 
             elif self.operation_mode == 'velocity':
                 self.land_control.consume_target_offset(bf_angle_offset,timestamp)

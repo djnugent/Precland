@@ -62,7 +62,7 @@ class Ring_Detector(object):
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
 	def analyze_frame(self, img, frame_id,timestamp,altitude):
 		#start timer
-		start = time.time() * 1000
+		start = int(time.time() * 1000)
 
 		#check for a colored image
 		if(len(img.shape)>2):
@@ -127,7 +127,7 @@ class Ring_Detector(object):
 		perf.append(('decodes()', diff))
 
 
-		stop = time.time() * 1000
+		stop = int(time.time() * 1000)
 		print_perf()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 

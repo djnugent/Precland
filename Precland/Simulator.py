@@ -26,7 +26,7 @@ Add google earth as background
 class PrecisionLandSimulator():
 
 
-	def __init__(self,width,height,hfov,vfov,framerate):
+	def __init__(self,width,height,hfov,vfov,framerate, gimbal = False):
 
 
 		self.targetLocation = PositionVector()
@@ -41,6 +41,7 @@ class PrecisionLandSimulator():
 		self.camera_hfov = hfov
 		self.camera_fov = math.sqrt(self.camera_vfov**2 + self.camera_hfov**2)
 		self.camera_frameRate = framerate
+		self.gimbal = False
 
 	#load_target- load an image to simulate the target. Enter the actaul target size in meters(assuming the target is square)
 	def load_target(self,filename, actualSize):
@@ -167,7 +168,7 @@ class PrecisionLandSimulator():
 
 	#get_frame - retreive a simulated camera image
 	def get_frame(self):
-		start = time.time() * 1000
+		start = int(time.time() * 1000)
 
 		#distance bewteen camera and target in meters
 		aX,aY,aZ = self.targetLocation.x, self.targetLocation.y, self.targetLocation.z
@@ -177,6 +178,9 @@ class PrecisionLandSimulator():
 		thetaX = self.vehicleAttitude.pitch
 		thetaY = self.vehicleAttitude.roll
 		thetaZ = self.vehicleAttitude.yaw
+
+		if self.gimbal:
+			thetaX, thetaY = 0,0
 
 		#convert distance bewtween camera and target in pixels
 		aX = aX * self.pixels_per_meter
@@ -191,10 +195,10 @@ class PrecisionLandSimulator():
 		sim = self.simulate_target(thetaX,thetaY,thetaZ, aX, aY, aZ, cX, cY, cZ, self.camera_height, self.camera_width, self.camera_fov)
 
 		#simulate framerate
-		while(1000/self.camera_frameRate > time.time() * 1000 - start):
+		while(1000/self.camera_frameRate > int(time.time() * 1000) - start):
 			pass
 		sim = cv2.cvtColor(sim, cv2.COLOR_BGR2GRAY)
-		return sim
+		return True,sim
 
 
 

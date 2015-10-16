@@ -93,7 +93,7 @@ class VisNavDispatcher(object):
 
 	#is_ready - checks whether it is time to dispatch a new process
 	def is_ready(self):
-		return (time.time() * 1000 - self.lastDispatch >= self.runTime)
+		return (int(time.time() * 1000) - self.lastDispatch >= self.runTime)
 
 	#dispatch - dispatch a new process to a core
 	def dispatch(self, target, args):
@@ -102,7 +102,7 @@ class VisNavDispatcher(object):
 			return
 
 		#mark our last dispatch time
-		self.lastDispatch = time.time() * 1000
+		self.lastDispatch = int(time.time() * 1000)
 
 
 		#splice together arguements
@@ -131,8 +131,8 @@ class VisNavDispatcher(object):
 
 			#Calculate real runtime. Diagnostic purposes only
 			#In an ideal system the dispatch rate would equal the retreival rate. That is not the case here
-			actualRunTime = time.time() * 1000 - self.lastRetreival
-			self.lastRetreival = time.time() * 1000
+			actualRunTime = int(time.time() * 1000) - self.lastRetreival
+			self.lastRetreival = int(time.time() * 1000)
 
 			VN_logger.text(VN_logger.PERFORMANCE, "DispatchHz: {0} runHz: {1} ProcessHz: {2} CaptureHz: {3} Processes: {4} ".format(round(1000.0/(self.runTime)), round(1000.0/actualRunTime), round((1000.0/results[1])),round(1000.0/self.captureTime), len(multiprocessing.active_children())))
 			return results
@@ -166,9 +166,9 @@ class VisNavDispatcher(object):
 	 		self.calculate_dispatch_schedule()
 
 	 		# simulate Retreiving an image
-			capStart = time.time() * 1000
+			capStart = int(time.time() * 1000)
 			time.sleep(33.3/1000) #img = smartCam.get_image()
-			capStop = time.time() * 1000
+			capStop = int(time.time() * 1000)
 
 	 		#update capture time
 	 		self.update_capture_time(capStop-capStart)
