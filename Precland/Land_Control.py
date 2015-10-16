@@ -1,10 +1,10 @@
 
 import math
 import time
-from Common.VN_util import *
+from cv_utils.helpers import *
 
 
-class Control_land():
+class Land_Control():
 
     def __init__(self,v_controller, rapid_speed = 1.0, slow_speed = 0.25,alt_thres = 5):
         self.v_controller = v_controller

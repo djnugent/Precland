@@ -87,7 +87,7 @@ class CircleDetector(object):
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
 	def analyze_frame(self, img):
 		#start timer
-		start = current_milli_time()
+		start = time.time() * 1000
 
 		#blur image and grayscale
 		#img = cv2.medianBlur(img,5)
@@ -155,16 +155,16 @@ class CircleDetector(object):
 						if ratios is not None:
 							distance = self.calcDistToTarget(self.finalTarget,ratios)
 
-							stop = current_milli_time()
+							stop = time.time() * 1000
 							return (stop-start,center, distance, self.finalTarget)
 							#unable to calculate distance due to invalid data
 						else:
-							stop = current_milli_time()
+							stop = time.time() * 1000
 							return ( stop-start, center, 0, self.finalTarget)
 
 
 		#unable to locate target
-		stop = current_milli_time()
+		stop = time.time() * 1000
 		return (stop-start,None,0,None)
 
 

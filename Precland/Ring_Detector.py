@@ -4,35 +4,15 @@ import math
 import time
 import cv2
 import numpy as np
-
+from cv_utils.helpers import *
+from cv_utils.dataTypes import *
 
 '''
 Possible Optimisations:
 speed up canny(fix image blur-> bilateral works well but is slow or write a better adaptive canny)
 speed up circle detection
 speed up ring detection
-Try ROI using hough circles
 '''
-
-
-#for running outside of mavproxy
-if __name__ == "__main__":
-	import sys
-	import os
-	import inspect
-	#Add script directory to path
-	script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-	script_dir = script_dir.replace('PrecisionLand_lib','')
-	sys.path.append(script_dir)
-
-	from Common.Flow_Camera import flow_cam
-	from PrecisionLand_lib.PL_gui import PrecisionLandGUI as gui
-	from Common.ImageRW import *
-
-
-#COMMOM IMPORTS
-from Common.VN_config import VN_config
-from Common.VN_util import *
 
 
 perf = []
@@ -45,25 +25,22 @@ def print_perf():
 class Ring_Detector(object):
 
 
-
-	def __init__(self):
+	def __init__(self,config):
 		#load algorithm constants
 		#how round a circle needs to be. Perfect circle = 1
-		self.eccentricity = VN_config.get_float('algorithm', 'eccentricity', 0.8)
+		self.eccentricity = config.get_float('algorithm', 'eccentricity', 0.8)
 		#min radius of a circle(possibly make loosely dynamic)
-		self.min_radius = VN_config.get_integer('algorithm','min_radius', 9)
+		self.min_radius = config.get_integer('algorithm','min_radius', 9)
 		#Minimum ratio while comparing contour area to ellipse area
-		self.area_ratio = VN_config.get_float('algorithm','area_ratio', 0.8)
+		self.area_ratio = config.get_float('algorithm','area_ratio', 0.8)
 		#Minimum ratio between outer and inner circle area in a ring
-		self.min_ring_ratio = VN_config.get_float('algorithm','min_ring_ratio', 0.7)
+		self.min_ring_ratio = config.get_float('algorithm','min_ring_ratio', 0.7)
 		#Maximum ratio between outer and inner circle area in a ring
-		self.max_ring_ratio = VN_config.get_float('algorithm', 'max_ring_ratio',0.9)
+		self.max_ring_ratio = config.get_float('algorithm', 'max_ring_ratio',0.9)
 		#The smallest span of min max pixels that get enhanced(Largest range is 255, Smaller numbers make image suspitable to noise)
-		self.min_range = VN_config.get_integer('algorithm', 'min_range', 10)
+		self.min_range = config.get_integer('algorithm', 'min_range', 10)
 		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
-		self.res_reduction = VN_config.get_integer('algorithm', 'res_reduction',1)
-
-
+		self.res_reduction = config.get_integer('algorithm', 'res_reduction',1)
 
 
 	#analyze_frame_async - process an frame and look for a bullseye asynchronously
@@ -80,13 +57,12 @@ class Ring_Detector(object):
 	#analyze_frame - process an frame and look for a bullseye
 	#params -child_conn: child pipe connection
 	#		-img: raw image to be processed
-	#return -runtime: time in millis to process an image
-	#		-center: tuple(x,y) of the objects position on; 'None' when no target
-	#		-distance: distance in meters to the target; -1 when unable to calculate
+	#return -runtime: time in millis to process an image        config = Config("precland","~/precland.cnf")
+
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
 	def analyze_frame(self, img, frame_id,timestamp,altitude):
 		#start timer
-		start = current_milli_time()
+		start = time.time() * 1000
 
 		#check for a colored image
 		if(len(img.shape)>2):
@@ -98,8 +74,8 @@ class Ring_Detector(object):
 		blur = cv2.GaussianBlur(img,(5,5),0)
 		#blur = cv2.bilateralFilter(img,9,75,75)
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('blur', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('blur', diff))
 		filtered = blur
 		#cv2.imshow("blur",blur)
 
@@ -112,8 +88,8 @@ class Ring_Detector(object):
 		filtered = cv2.Canny(filtered,avg/2,avg)
 		#filtered = self.auto_canny(filtered)
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('canny()', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('canny()', diff))
 		canny = filtered
 		#cv2.imshow("edge", canny)
 
@@ -122,8 +98,8 @@ class Ring_Detector(object):
 		e1 = cv2.getTickCount()
 		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, min_radius = self.min_radius)
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('detect_circles()', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('detect_circles()', diff))
 
 		rings = []
 		best_ring = None
@@ -132,8 +108,8 @@ class Ring_Detector(object):
 			e1 = cv2.getTickCount()
 			rings = self.detect_rings(circles,self.min_ring_ratio,self.max_ring_ratio)
 			e2 = cv2.getTickCount()
-			time = (e2-e1) / cv2.getTickFrequency() * 1000
-			perf.append(('detect_rings()', time))
+			diff = (e2-e1) / cv2.getTickFrequency() * 1000
+			perf.append(('detect_rings()', diff))
 
 		e1 = cv2.getTickCount()
 		#find smallest ring with orientation(if available)
@@ -147,11 +123,11 @@ class Ring_Detector(object):
 
 
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('decodes()', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('decodes()', diff))
 
 
-		stop = current_milli_time()
+		stop = time.time() * 1000
 		print_perf()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
@@ -372,8 +348,8 @@ class Ring(object):
 		print scan
 
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('scan()', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('scan()', diff))
 
 		e1 = cv2.getTickCount()
 		#denoise scan
@@ -388,8 +364,8 @@ class Ring(object):
 				scan.itemset(i,int(round(np.average(scan[low:high]))))
 
 		e2 = cv2.getTickCount()
-		time = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('denoise()', time))
+		diff = (e2-e1) / cv2.getTickFrequency() * 1000
+		perf.append(('denoise()', diff))
 
 		if 0.6 > np.average(scan) > 0.4:
 			e1 = cv2.getTickCount()
@@ -404,8 +380,8 @@ class Ring(object):
 				if a == 0 and b == 1 :
 					edges.append((j, 'rising'))
 			e2 = cv2.getTickCount()
-			time = (e2-e1) / cv2.getTickFrequency() * 1000
-			perf.append(('detect edges()', time))
+			diff = (e2-e1) / cv2.getTickFrequency() * 1000
+			perf.append(('detect edges()', diff))
 
 			#detect segments
 			segments = []
@@ -432,8 +408,8 @@ class Ring(object):
 							length = b[0] - a[0]
 					segments.append((bit,orientation,length))
 					e2 = cv2.getTickCount()
-					time = (e2-e1) / cv2.getTickFrequency() * 1000
-					perf.append(('detect segments()', time))
+					diff = (e2-e1) / cv2.getTickFrequency() * 1000
+					perf.append(('detect segments()', diff))
 
 				e1 = cv2.getTickCount()
 				#extract target orientation
@@ -450,8 +426,8 @@ class Ring(object):
 						bit_shift = i
 
 				e2 = cv2.getTickCount()
-				time = (e2-e1) / cv2.getTickFrequency() * 1000
-				perf.append(('target_orientation()', time))
+				diff = (e2-e1) / cv2.getTickFrequency() * 1000
+				perf.append(('target_orientation()', diff))
 
 				e1 = cv2.getTickCount()
 				#read code
@@ -468,8 +444,8 @@ class Ring(object):
 						bit_count -= 1
 
 				e2 = cv2.getTickCount()
-				time = (e2-e1) / cv2.getTickFrequency() * 1000
-				perf.append(('read_code()', time))
+				diff = (e2-e1) / cv2.getTickFrequency() * 1000
+				perf.append(('read_code()', diff))
 				print "Code: {0}, Orient: {1} degs".format(self.code,self.orientation)
 
 		return bal
@@ -484,6 +460,10 @@ class Ring(object):
 
 if __name__ == "__main__":
 	import argparse
+	from Flow_Camera import flow_cam
+	from GUI import PrecisionLandGUI as gui
+	from cv_utils.ImageRW import *
+	from cv_utils.config import Config
 	#parse arguments
 	parser = argparse.ArgumentParser(description="Run Ring_Detector")
 	#optional arguments
@@ -496,7 +476,7 @@ if __name__ == "__main__":
 
 
 	#config file
-	VN_config.get_file(args.file)
+	config = Config('Ring_Detector', args.file)
 
 	#video writer
 	if(args.write):
@@ -517,7 +497,7 @@ if __name__ == "__main__":
 		cam = ImageReader(args.input)
 
 
-	detector = Ring_Detector()
+	detector = Ring_Detector(config)
 	frame_id = 0
 	if cam is not None and cam.isOpened():
 		while True:

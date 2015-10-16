@@ -102,9 +102,7 @@ class Point3(object):
 
 
 
-# current_milli_time - current time in milliseconds
-def current_milli_time():
-	return int(time.time() * 1000)
+
 
 # pixels_to_angle - converts a number of pixels into an angle in radians
 def pixels_to_angle(num_pixels,fov,img_size):

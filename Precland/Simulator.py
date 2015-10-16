@@ -1,20 +1,13 @@
 #!/usr/bin/python
 #SYSTEM IMPORTS
 import sys
+from os.path import expanduser
 import math
 import time
 import cv2
 import numpy as np
-
-
-
-#COMMOM IMPORTS
-from Common.VN_config import VN_config
-from Common.VN_util import *
-from Common.VN_position_vector import PositionVector
-from Common.VN_vehicle_control import veh_control
-
-#DRONEAPI IMPORTS
+from cv_utils.position_vector import PositionVector
+from cv_utils.helpers import *
 from droneapi.lib import VehicleMode, Location, Attitude
 
 
@@ -33,7 +26,7 @@ Add google earth as background
 class PrecisionLandSimulator():
 
 
-	def __init__(self):
+	def __init__(self,width,height,hfov,vfov,framerate):
 
 
 		self.targetLocation = PositionVector()
@@ -42,18 +35,18 @@ class PrecisionLandSimulator():
 		self.backgroundColor = (209,209,209)
 
 		#define camera
-		self.camera_width = VN_config.get_integer('camera', 'width', 640)
-		self.camera_height = VN_config.get_integer('camera', 'height', 640)
-		self.camera_vfov = VN_config.get_float('camera', 'vertical-fov',72.42 )
-		self.camera_hfov = VN_config.get_float('camera', 'horizontal-fov', 72.42)
+		self.camera_width = width
+		self.camera_height = height
+		self.camera_vfov = vfov
+		self.camera_hfov = hfov
 		self.camera_fov = math.sqrt(self.camera_vfov**2 + self.camera_hfov**2)
-		self.camera_frameRate = 2
+		self.camera_frameRate = framerate
 
 	#load_target- load an image to simulate the target. Enter the actaul target size in meters(assuming the target is square)
 	def load_target(self,filename, actualSize):
-		self.target = cv2.imread(filename)
+		self.target = cv2.imread(expanduser(filename))
 		if self.target is None:
-				print "Unable to load target image!!!\nExiting PrecisionLand.py"
+				print "Unable to load target image!"
 				sys.exit(0)
 		self.target_width = self.target.shape[1]
 		self.target_height = self.target.shape[0]
@@ -174,7 +167,7 @@ class PrecisionLandSimulator():
 
 	#get_frame - retreive a simulated camera image
 	def get_frame(self):
-		start = current_milli_time()
+		start = time.time() * 1000
 
 		#distance bewteen camera and target in meters
 		aX,aY,aZ = self.targetLocation.x, self.targetLocation.y, self.targetLocation.z
@@ -198,14 +191,14 @@ class PrecisionLandSimulator():
 		sim = self.simulate_target(thetaX,thetaY,thetaZ, aX, aY, aZ, cX, cY, cZ, self.camera_height, self.camera_width, self.camera_fov)
 
 		#simulate framerate
-		while(1000/self.camera_frameRate > current_milli_time() - start):
+		while(1000/self.camera_frameRate > time.time() * 1000 - start):
 			pass
 		sim = cv2.cvtColor(sim, cv2.COLOR_BGR2GRAY)
 		return sim
 
 
-sim = PrecisionLandSimulator()
 
 
 if __name__ == "__builtin__":
+	sim = PrecisionLandSimulator()
 	sim.main()
