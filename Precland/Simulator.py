@@ -13,12 +13,7 @@ from droneapi.lib import VehicleMode, Location, Attitude
 
 '''
 TODO
-Intergrate config file
-
-Long term enhancements:
-Add in textured/tiled background
-dynamic exposure levels / frame rate
-Add google earth as background
+fix warped aspect ratios
 '''
 
 
@@ -26,7 +21,7 @@ Add google earth as background
 class PrecisionLandSimulator():
 
 
-	def __init__(self,width,height,hfov,vfov,framerate, gimbal = False):
+	def __init__(self,config):
 
 
 		self.targetLocation = PositionVector()
@@ -35,27 +30,34 @@ class PrecisionLandSimulator():
 		self.backgroundColor = (209,209,209)
 
 		#define camera
-		self.camera_width = width
-		self.camera_height = height
-		self.camera_vfov = vfov
-		self.camera_hfov = hfov
+		self.camera_width = config.get_integer('simultor','width',640)
+		self.camera_height = config.get_integer('simultor','height',480)
+		self.camera_hfov = config.get_float('camera','hfov',72.3)
+		self.camera_vfov = config.get_float('camera','vfov',46)
+		self.has_gimbal = config.get_boolean('camera','has_gimbal',False)
+
+
+		#define environment
+		self.simulator_framerate = config.get_integer('simultor','framerate',30)
+		self.target_size = config.get_float('simultor','target_size',0.75)
+		self.target_location = config.get_string('simultor','target_location','~/precland/Targets/mat_v1.jpg')
+
+
 		self.camera_fov = math.sqrt(self.camera_vfov**2 + self.camera_hfov**2)
-		self.camera_frameRate = framerate
-		self.gimbal = False
+
+		self.load_target()
 
 	#load_target- load an image to simulate the target. Enter the actaul target size in meters(assuming the target is square)
-	def load_target(self,filename, actualSize):
-		self.target = cv2.imread(expanduser(filename))
+	def load_target(self):
+		self.target = cv2.imread(expanduser(self.target_location))
 		if self.target is None:
 				print "Unable to load target image!"
 				sys.exit(0)
 		self.target_width = self.target.shape[1]
 		self.target_height = self.target.shape[0]
 
-
-		self.actualSize = actualSize
 		#scaling factor for real dimensions to simultor pixels
-		self.pixels_per_meter = (self.target_height + self.target_width) / (2.0 * actualSize)
+		self.pixels_per_meter = (self.target_height + self.target_width) / (2.0 * self.target_size)
 
 
 	#set_target_location- give the target a gps location
@@ -82,7 +84,7 @@ class PrecisionLandSimulator():
 		    attitude = veh_control.get_attitude()
 
 		    self.refresh_simulator(location,attitude)
-		    frame = self.get_frame()
+		    ret,frame = self.get_image()
 		    cv2.imshow('frame',frame)
 
 		    key = cv2.waitKey(1)
@@ -166,8 +168,8 @@ class PrecisionLandSimulator():
 
 
 
-	#get_frame - retreive a simulated camera image
-	def get_frame(self):
+	#get_image - retreive a simulated camera image
+	def get_image(self):
 		start = int(time.time() * 1000)
 
 		#distance bewteen camera and target in meters
@@ -179,7 +181,7 @@ class PrecisionLandSimulator():
 		thetaY = self.vehicleAttitude.roll
 		thetaZ = self.vehicleAttitude.yaw
 
-		if self.gimbal:
+		if self.has_gimbal:
 			thetaX, thetaY = 0,0
 
 		#convert distance bewtween camera and target in pixels
@@ -195,8 +197,11 @@ class PrecisionLandSimulator():
 		sim = self.simulate_target(thetaX,thetaY,thetaZ, aX, aY, aZ, cX, cY, cZ, self.camera_height, self.camera_width, self.camera_fov)
 
 		#simulate framerate
-		while(1000/self.camera_frameRate > int(time.time() * 1000) - start):
-			pass
+		#constrain framerate
+        while self.simulator_framerate != 0 and (time.time() - self.last_update_time < (1.0 / self.simulator_framerate )):
+            pass
+        self.last_update_time = time.time()
+
 		sim = cv2.cvtColor(sim, cv2.COLOR_BGR2GRAY)
 		return True,sim
 
@@ -204,5 +209,7 @@ class PrecisionLandSimulator():
 
 
 if __name__ == "__builtin__":
-	sim = PrecisionLandSimulator()
+	#load config file
+    config = Config("precland","~/precland_default.cnf")
+	sim = PrecisionLandSimulator(config)
 	sim.main()

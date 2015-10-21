@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from cv_utils.helpers import *
 from cv_utils.dataTypes import *
+from cv_utils.benchmark import Benchmark
 
 '''
 Possible Optimisations:
@@ -14,13 +15,7 @@ speed up circle detection
 speed up ring detection
 '''
 
-
-perf = []
-def print_perf():
-	global perf
-	for ent in perf:
-		print ent[0], ent[1]
-	perf = []
+perf = Benchmark("Ring_Detector")
 
 class Ring_Detector(object):
 
@@ -37,10 +32,6 @@ class Ring_Detector(object):
 		self.min_ring_ratio = config.get_float('algorithm','min_ring_ratio', 0.7)
 		#Maximum ratio between outer and inner circle area in a ring
 		self.max_ring_ratio = config.get_float('algorithm', 'max_ring_ratio',0.9)
-		#The smallest span of min max pixels that get enhanced(Largest range is 255, Smaller numbers make image suspitable to noise)
-		self.min_range = config.get_integer('algorithm', 'min_range', 10)
-		#reduce the grayscale resoltion(steps) by this multipler( 1 is full res, 2 is half res, 4 is quarter res )
-		self.res_reduction = config.get_integer('algorithm', 'res_reduction',1)
 
 
 	#analyze_frame_async - process an frame and look for a bullseye asynchronously
@@ -70,12 +61,10 @@ class Ring_Detector(object):
 			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
 		# Blur image
-		e1 = cv2.getTickCount()
+		perf.enter()
 		blur = cv2.GaussianBlur(img,(5,5),0)
 		#blur = cv2.bilateralFilter(img,9,75,75)
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('blur', diff))
+		perf.exit(function = 'blur')
 		filtered = blur
 		#cv2.imshow("blur",blur)
 
@@ -84,34 +73,30 @@ class Ring_Detector(object):
 		avg = int(avg)
 
 		#canny edge detector
-		e1 = cv2.getTickCount()
+		perf.enter()
 		filtered = cv2.Canny(filtered,avg/2,avg)
 		#filtered = self.auto_canny(filtered)
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('canny()', diff))
+		perf.exit(function = 'canny')
 		canny = filtered
 		#cv2.imshow("edge", canny)
 
 
 		#detect circles
-		e1 = cv2.getTickCount()
+		perf.enter()
 		circles = self.detect_circles(filtered,self.eccentricity, self.area_ratio, min_radius = self.min_radius)
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('detect_circles()', diff))
+
+
+		perf.exit(function = 'detect_circles')
 
 		rings = []
 		best_ring = None
 		#turn circles into rings
 		if len(circles) > 0:
-			e1 = cv2.getTickCount()
+			perf.enter()
 			rings = self.detect_rings(circles,self.min_ring_ratio,self.max_ring_ratio)
-			e2 = cv2.getTickCount()
-			diff = (e2-e1) / cv2.getTickFrequency() * 1000
-			perf.append(('detect_rings()', diff))
+			perf.exit(function = 'detect_rings')
 
-		e1 = cv2.getTickCount()
+		perf.enter()
 		#find smallest ring with orientation(if available)
 		min_code = 256
 		for i in range(0,len(rings)):
@@ -121,14 +106,12 @@ class Ring_Detector(object):
 				best_ring = ring
 			cv2.imshow("roi{0}".format(i),bal)
 
-
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('decodes()', diff))
+		perf.exit(function = 'decodes')
 
 
 		stop = int(time.time() * 1000)
-		print_perf()
+		perf.print_package("Ring_Detector")
+		perf.clear()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
@@ -312,7 +295,7 @@ class Ring(object):
 		avg = int(avg)
 		ret,filtered = cv2.threshold(bal,avg,255,cv2.THRESH_BINARY)
 
-		e1 = cv2.getTickCount()
+		perf.enter()
 
 		#extract shape,size,location of image
 		ellipse = self.inner_circle.ellipse
@@ -347,11 +330,11 @@ class Ring(object):
 			scan.itemset(deg,pix)
 		print scan
 
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('scan()', diff))
 
-		e1 = cv2.getTickCount()
+
+		perf.exit(function = 'scan')
+
+		perf.enter()
 		#denoise scan
 		for i in range(0,steps):
 			#compare value to neighbors
@@ -363,12 +346,12 @@ class Ring(object):
 			else:
 				scan.itemset(i,int(round(np.average(scan[low:high]))))
 
-		e2 = cv2.getTickCount()
-		diff = (e2-e1) / cv2.getTickFrequency() * 1000
-		perf.append(('denoise()', diff))
+
+
+		perf.exit(function = 'denoise')
 
 		if 0.6 > np.average(scan) > 0.4:
-			e1 = cv2.getTickCount()
+			perf.enter()
 			#detect edges
 			edges = []
 			for i in range(0,steps):
@@ -379,14 +362,13 @@ class Ring(object):
 					edges.append((j,'falling'))
 				if a == 0 and b == 1 :
 					edges.append((j, 'rising'))
-			e2 = cv2.getTickCount()
-			diff = (e2-e1) / cv2.getTickFrequency() * 1000
-			perf.append(('detect edges()', diff))
+
+
+			perf.exit(function = 'detect edges')
 
 			#detect segments
 			segments = []
 			if len(edges) == code_length:
-				e1 = cv2.getTickCount()
 				for i in range(0,code_length):
 					a = edges[i]
 					b = edges[(i+1)%code_length]
@@ -407,11 +389,8 @@ class Ring(object):
 						else:
 							length = b[0] - a[0]
 					segments.append((bit,orientation,length))
-					e2 = cv2.getTickCount()
-					diff = (e2-e1) / cv2.getTickFrequency() * 1000
-					perf.append(('detect segments()', diff))
 
-				e1 = cv2.getTickCount()
+				perf.enter()
 				#extract target orientation
 				target_orientation = 0
 				bit_shift = 0
@@ -425,11 +404,11 @@ class Ring(object):
 						self.orientation = orient * 360.0/steps
 						bit_shift = i
 
-				e2 = cv2.getTickCount()
-				diff = (e2-e1) / cv2.getTickFrequency() * 1000
-				perf.append(('target_orientation()', diff))
 
-				e1 = cv2.getTickCount()
+
+				perf.exit(function = 'target_orientation')
+
+				perf.enter()
 				#read code
 				bit_count = 7
 				self.code = 0
@@ -443,9 +422,9 @@ class Ring(object):
 						self.code |= bit << abs(bit_count) #FIXME neg bitcount
 						bit_count -= 1
 
-				e2 = cv2.getTickCount()
-				diff = (e2-e1) / cv2.getTickFrequency() * 1000
-				perf.append(('read_code()', diff))
+
+
+				perf.exit(function = 'read_code')
 				print "Code: {0}, Orient: {1} degs".format(self.code,self.orientation)
 
 		return bal
@@ -456,6 +435,33 @@ class Ring(object):
 	def __str__(self):
 		return "Center: {0} Radius: {1} Orientation: {2} radians".format(self.center,self.radius,self.orientation)
 
+	# render_overlay- highlight the detected target
+	def render_overlay(self, image, color, extra_rings=None. extra_color = None):
+		#create a shallow copy of image
+		img = np.copy(image)
+		if(len(img.shape) < 3):
+			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
+
+		#draw this ring
+		cv2.circle(img,self.center.tuple(), self.inner_circle.radius,color, thickness=1)
+		cv2.circle(img,self.center.tuple(), self.outer_circle.radius,color, thickness=1)
+		if self.is_valid():
+			x = self.center.x + int(self.inner_circle.radius * math.sin(self.orientation))
+			y = self.center.y - int(self.inner_circle.radius * math.cos(self.orientation))
+			cv2.line(img,self.center.tuple(),(x,y),(255,255,255), thickness=1 )
+
+		#draw any other rings
+		if extra_rings is not None:
+			for rng in extra_rings:
+				cv2.circle(img,rng.center.tuple(), rng.inner_circle.radius,extra_color, thickness=1)
+				cv2.circle(img,rng.center.tuple(), rng.outer_circle.radius,extra_color, thickness=1)
+				if rng.is_valid():
+					x = rng.center.x + int(rng.inner_circle.radius * math.sin(rng.orientation))
+					y = rng.center.y - int(rng.inner_circle.radius * math.cos(rng.orientation))
+					cv2.line(img,rng.center.tuple(),(x,y),(255,255,255), thickness=1 )
+
+
+		return img
 
 
 if __name__ == "__main__":
@@ -469,7 +475,7 @@ if __name__ == "__main__":
 	#optional arguments
 	parser.add_argument('-c', '--camera', default=0, help='Camera source: index, file, or stream')
 	parser.add_argument('-i', '--input', default= None, help='use an image folder as an input instead of a camera input')
-	parser.add_argument('-f', '--file', default='Smart_Camera.cnf', help='load a config file other than the default')
+	parser.add_argument('-f', '--file', default='~/precland_default.cnf', help='load a config file other than the default')
 	parser.add_argument('-w', '--write', default=False)
 
 	args, unknown = parser.parse_known_args()
@@ -507,16 +513,23 @@ if __name__ == "__main__":
 				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
 
-				#show results
-				rend_Image = gui.add_ring_highlights(img, results[3],results[2])#ring = results[2])
-				yaw , radius = None, None
-				if results[2] is not None:
-					radius = results[2].radius
-					if results[2].is_valid():
-						yaw = int(math.degrees(results[2].orientation ))
 
+				#unpack data
+		        frame_id, timestamp, altitude = results[0]
+		        best_ring = results[2]
+		        rings = results[3]
+
+				#show results
+				rend_Image = best_ring.render_overlay(img,(0,0,255), extra_rings = rings, extra_color = (255,0,0))
+				yaw , radius = None, None
+				if best_ring is not None:
+					radius = best_ring.radius
+					if best_ring.is_valid():
+						yaw = int(math.degrees(results[2].orientation))
+
+				#overlay stats
 				status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
-				rend_Image = gui.add_stats(rend_Image,status_text,5, 250)
+				rend_Image = add_stats(rend_Image,status_text,5, 250)
 				if(args.write):
 					writer.write(rend_Image)
 
