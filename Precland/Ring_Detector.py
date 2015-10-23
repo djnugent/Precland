@@ -110,7 +110,7 @@ class Ring_Detector(object):
 
 
 		stop = int(time.time() * 1000)
-		perf.print_package("Ring_Detector")
+		#perf.print_package("Ring_Detector")
 		perf.clear()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
@@ -328,8 +328,6 @@ class Ring(object):
 			pix /= len(scan_lines)
 			pix = int(round(pix))
 			scan.itemset(deg,pix)
-		print scan
-
 
 
 		perf.exit(function = 'scan')
@@ -416,7 +414,6 @@ class Ring(object):
 					seg = segments[(i + bit_shift) % len(segments)]
 					bit,orientation,length = seg
 					width = int(round(length * 8.0/steps))
-					print length,width
 
 					for j in range(0,width):
 						self.code |= bit << abs(bit_count) #FIXME neg bitcount
@@ -436,9 +433,8 @@ class Ring(object):
 		return "Center: {0} Radius: {1} Orientation: {2} radians".format(self.center,self.radius,self.orientation)
 
 	# render_overlay- highlight the detected target
-	def render_overlay(self, image, color, extra_rings=None. extra_color = None):
-		#create a shallow copy of image
-		img = np.copy(image)
+	def render_overlay(self, img, color):
+
 		if(len(img.shape) < 3):
 			img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
 
@@ -450,15 +446,7 @@ class Ring(object):
 			y = self.center.y - int(self.inner_circle.radius * math.cos(self.orientation))
 			cv2.line(img,self.center.tuple(),(x,y),(255,255,255), thickness=1 )
 
-		#draw any other rings
-		if extra_rings is not None:
-			for rng in extra_rings:
-				cv2.circle(img,rng.center.tuple(), rng.inner_circle.radius,extra_color, thickness=1)
-				cv2.circle(img,rng.center.tuple(), rng.outer_circle.radius,extra_color, thickness=1)
-				if rng.is_valid():
-					x = rng.center.x + int(rng.inner_circle.radius * math.sin(rng.orientation))
-					y = rng.center.y - int(rng.inner_circle.radius * math.cos(rng.orientation))
-					cv2.line(img,rng.center.tuple(),(x,y),(255,255,255), thickness=1 )
+
 
 
 		return img
@@ -513,16 +501,18 @@ if __name__ == "__main__":
 				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
 
-
 				#unpack data
-		        frame_id, timestamp, altitude = results[0]
-		        best_ring = results[2]
-		        rings = results[3]
+				frame_id, timestamp, altitude = results[0]
+				best_ring = results[2]
+				rings = results[3]
 
 				#show results
-				rend_Image = best_ring.render_overlay(img,(0,0,255), extra_rings = rings, extra_color = (255,0,0))
 				yaw , radius = None, None
+				rend_Image = np.copy(img)
 				if best_ring is not None:
+					for r in rings:
+						rend_Image = r.render_overlay(rend_Image,(255,0,0))
+					rend_Image = best_ring.render_overlay(rend_Image,(0,0,255))
 					radius = best_ring.radius
 					if best_ring.is_valid():
 						yaw = int(math.degrees(results[2].orientation))

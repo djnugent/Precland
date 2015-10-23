@@ -12,15 +12,15 @@ location = ~/precland/
 print_level = debug, general, algorithm
 log_level = aircraft , algorithm, general
 display_level = raw, gui
-record_level = ,
-record_type = video
+record_level = raw, gui
+record_type = image
 
 [camera]
-source = 0
+source = /home/daniel/shared/sololink.sdp
 background_capture = False
-has_gimbal = False
-horizontal-fov = 72.0
-vertical-fov = 43.0
+has_gimbal = True
+horizontal-fov = 94.3
+vertical-fov = 55.0
 matrix = 614.01269552 0.0 315.00073982
 	0.0 614.43556296 237.14926858
 	0.0 0.0 1.0
@@ -30,23 +30,23 @@ distortion = 0.12269303 -0.26618881 0.00129035 0.00081791 0.17005303
 
 [simulator]
 use_simulator = False
-width = 640
-height = 480
-frame_rate = 30
-target_size = 0.75
+width = 352
+height = 352
+frame_rate = 10
+target_size = 2
 target_location = ~/precland/Targets/mat_v1.jpg
 
 [general]
 always_run = True
-operation_mode = velocity
 
 [land_control]
-init_dec_speed = 1.5
-final_dec_speed = 0.75
+operation_mode = velocity
+init_dec_speed = 1.0
+final_dec_speed = 0.5
 init_dec_alt = 20
-goto_alt = 10
+goto_distance = 1.5
 final_dec_alt = 2
 abort_alt = 5
 landed_alt = 0.5
-input_scalar = 1.3
-update_rate = 30
+input_scalar = 1.0
+update_rate = 10

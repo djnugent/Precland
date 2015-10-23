@@ -22,6 +22,7 @@ from cv_utils.logger import Logger
 from cv_utils.vehicle_control import VehicleControl
 from cv_utils.transforms import *
 from cv_utils.dataTypes import *
+from cv_utils.threader import *
 
 #LOCAL IMPORTS
 from Simulator import PrecisionLandSimulator
@@ -67,10 +68,10 @@ class PrecisionLand(object):
     	self.logger.set_record_type(self.config.get_string('logging', 'record_type', 'video'))
 
         #video
-        self.camera_src = self.config.get_boolean('camera','source', True)
+        self.camera_src = self.config.get_string('camera','source', "0")
         self.background_capture = self.config.get_boolean('camera','background_capture', False)
         self.hfov = config.get_float('camera','hfov',72.3)
-		self.vfov = config.get_float('camera','vfov',46)
+        self.vfov = config.get_float('camera','vfov',46)
         self.video = Video(self.camera_src,self.background_capture)
 
         #non opencv capture device
@@ -84,6 +85,7 @@ class PrecisionLand(object):
 
     def connect(self):
         self.logger.text(self.logger.GENERAL, 'Connecting to vehicle...')
+        self.veh_control = VehicleControl()
         while(self.veh_control.is_connected() == False):
             # connect to droneapi
             self.veh_control.connect(local_connect())
@@ -110,13 +112,15 @@ class PrecisionLand(object):
         location = Location(0,0,0)
         attitude = Attitude(0,0,0)
 
+        #control the vehicle state in the background
+        self.land_control = Land_Control(self.config, self.veh_control)
+        control_thread = Threader(target=self.land_control.update, args=None,iterations = -1)
 
         while self.veh_control.is_connected():
 
-            #control the vehicle state in the background
-            self.land_control = Land_Control(self.config, self.veh_control)
-            control_thread = Threader(target=self.land_control.update, args=(),iterations = -1)
-            control_thread.start()
+            #start thread
+            if not control_thread.is_alive():
+                control_thread.start()
 
             #we are in a landing mode and we are still running the landing program
             if (self.always_run or self.veh_control.get_mode() == "LAND" or self.veh_control.get_mode() == "RTL") and self.veh_control.is_armed():
@@ -130,6 +134,7 @@ class PrecisionLand(object):
                 # grab an image
                 frame = None
                 if(self.use_simulator):
+                    self.sim.set_target_location(self.veh_control.get_home(True))
                     self.sim.refresh_simulator(location,attitude)
                     ret,frame = self.sim.get_image()
                 else:
@@ -155,7 +160,7 @@ class PrecisionLand(object):
 
 
     # process_results - Act on information extracted from image
-    def process_target(self,results, img):
+    def process_results(self,results, img):
         #unpack data
         frame_id, timestamp, altitude = results[0]
         best_ring = results[2]
@@ -165,12 +170,15 @@ class PrecisionLand(object):
 
 
         yaw , radius = None, None
+        #create a shallow copy of img
+        rend_Image = np.copy(img)
         if best_ring is not None:
-            #overlay rings
-            rend_Image = best_ring.render_overlay(img,(0,0,255), extra_rings = rings, extra_color = (255,0,0))
+            for r in rings:
+                rend_Image = r.render_overlay(rend_Image,(255,0,0))
+            rend_Image = best_ring.render_overlay(rend_Image,(0,0,255))
             radius = best_ring.radius
             if best_ring.is_valid():
-                yaw = int(math.degrees(best_ring.orientation))
+                yaw = int(math.degrees(results[2].orientation))
 
         #overlay stats
         status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(altitude))
@@ -194,7 +202,7 @@ class PrecisionLand(object):
 # if starting from mavproxy
 if __name__ == "__builtin__":
     #load config file
-    config = Config("precland","~/precland_default.cnf")
+    config = Config("precland","~/precland/precland_default.cnf")
 
     # start precision landing
     strat = PrecisionLand(config)
