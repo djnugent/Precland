@@ -104,6 +104,7 @@ class PrecisionLand(object):
 
         #create an image processor
         detector = Ring_Detector(self.config)
+        self.last_target = None
 
         #create a queue for images
         imageQueue = []
@@ -140,11 +141,24 @@ class PrecisionLand(object):
                 else:
                     ret,frame = self.video.get_image()
 
-                #run target detector
-                results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
+                #try to identify target near it's last location to save processing time
+                if self.last_target is not None and self.has_gimbal:
+                    roi, origin = crop_to_last_target(frame)
+                    roi_result = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
+                    #we found the target in cropped image
+                    if roi_results[2] is not None:
+                        self.last_target = self.process_results(roi_results, frame, origin)
+                    #lost track, process full image
+                    else:
+                        results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
+                        self.last_target = self.process_results(results, frame)
+                else:
+                    #run target detector
+                    results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
+                    #process image data
+                    self.last_target = self.process_results(results, frame)
 
-                #process image data
-                self.process_results(results, frame)
+
                 self.frames_captured += 1
 
             else:
@@ -160,7 +174,7 @@ class PrecisionLand(object):
 
 
     # process_results - Act on information extracted from image
-    def process_results(self,results, img):
+    def process_results(self,results, img, origin = Point(tup=(0,0)):
         #unpack data
         frame_id, timestamp, altitude = results[0]
         best_ring = results[2]
@@ -194,9 +208,14 @@ class PrecisionLand(object):
 
         #feed our land controller with new info if we have it
         if best_ring is not None:
+            best_ring.center += origin
             angular_offset = best_ring.get_angular_offset(img_width, img_height, self.hfov, self.vfov)
             self.land_control.consume_target_offset(angular_offset,timestamp)
 
+        return best_ring
+
+    def crop_to_last_target():
+        pass
 
 
 # if starting from mavproxy

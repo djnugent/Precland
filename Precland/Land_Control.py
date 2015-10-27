@@ -101,7 +101,7 @@ class Land_Control():
             elif curr_alt > self.landed_alt:
 
                 #send fine control
-                ''' Need to be in LAND mode, not GUIDED mode
+                '''Need to be in LAND mode, not GUIDED mode
                 #send raw target angular offsets to autopilot
                 if self.operation_mode == 'angular':
                     coord_frame = mavlink.MAV_FRAME_BODY_NED
