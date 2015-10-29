@@ -104,7 +104,7 @@ class Ring_Detector(object):
 			bal = ring.decode(blur)
 			if ring.code < min_code:
 				best_ring = ring
-			cv2.imshow("roi{0}".format(i),bal)
+			#cv2.imshow("roi{0}".format(i),bal)
 
 		perf.exit(function = 'decodes')
 
@@ -186,7 +186,8 @@ class Ring_Detector(object):
 
 	def detect_circles(self, orig, eccentricity, area_ratio, min_radius = 0, max_radius = 500000):
 
-		img = np.copy(orig)
+		#img = np.copy(orig)
+		img = orig
 
 		#locate contours
 		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -212,10 +213,10 @@ class Ring_Detector(object):
 		hull = cv2.convexHull(contour)
 		min_area = math.pi * min_radius * min_radius
 		max_area = math.pi * max_radius * max_radius
-		contour_area = cv2.contourArea(hull)
+		c_area = cv2.contourArea(hull)
 
 		#check for a shape of a certain size and corner resolution
-		if len(hull) > 4 and contour_area > min_area and contour_area < max_area:
+		if len(hull) > 4 and c_area > min_area and c_area < max_area:
 
 			#fit an ellipse
 			ellipse = cv2.fitEllipse(hull)
@@ -223,7 +224,6 @@ class Ring_Detector(object):
 			if ellipse[1][0] * 1.0/ ellipse[1][1] > eccentricity:
 				#compare area of raw hull vs area of ellipse to ellinate objects with corners
 				e_area = (ellipse[1][0]/2.0) * (ellipse[1][1]/2.0) * math.pi
-				c_area = cv2.contourArea(hull)
 				if (c_area / e_area) > area_ratio:
 					center = Point(int(ellipse[0][0]), int(ellipse[0][1]))
 					radius = int((ellipse[1][0] + ellipse[1][0]) /4.0) #average  and diameter -> radius

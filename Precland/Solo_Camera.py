@@ -1,7 +1,9 @@
 import ctypes
 from ctypes import *
 import numpy as np
-solocam = CDLL('./libsolocam.so')
+import time
+
+solocam = CDLL('/home/root/precland/Precland/libsolocam.so')
 
 def check(val):
   if val != 0:
@@ -17,7 +19,7 @@ class BUF(Structure):
 
 BUF_P = POINTER(BUF)
 
-class SoloCam(object):
+class SoloCamera(object):
   def __init__(self):
     self.ctx = c_void_p()
     check(solocam.solocam_open_hdmi(byref(self.ctx)))
@@ -29,13 +31,15 @@ class SoloCam(object):
     self.width = width.value
     self.height = height.value
     self.opened = False
+    self.reading = False
+
     try:
-        self.start()
+        self._start()
         self.opened = True
-    except IOError:
+    except OSError:
         self.opened = False
 
-  def start(self):
+  def _start(self):
     check(solocam.solocam_start(self.ctx))
 
   def stop(self):
@@ -44,20 +48,25 @@ class SoloCam(object):
   def isOpened(self):
     return self.opened and self.width == 1280 and self.height == 720
 
+  def clear(self):
+    if not self.reading:
+        bufp = BUF_P()
+        check(solocam.solocam_read_frame(self.ctx, byref(bufp)))
+        check(solocam.solocam_free_frame(self.ctx, bufp))
+    else:
+        time.sleep(0.016)
+
   def read(self):
+    self.reading = True
     bufp = BUF_P()
     check(solocam.solocam_read_frame(self.ctx, byref(bufp)))
     bufc = bufp.contents
-    #r = bytearray(bufc.data[0:bufc.used])
-    r = np.array(bufc.data[0:self.height*self.width],dtype='uint8').reshape(self.height, self.width)
-
-    ArrayType = ctypes.c_ubyte*self.width*self.height
-    addr = ctypes.addressof(bufc)
-    a = np.frombuffer(ArrayType.from_address(addr))
-
+    image = np.ctypeslib.as_array(bufc.data,shape = (self.height*self.width,)).reshape(self.height, self.width)
+    cp_image = np.empty_like(image)
+    np.copyto(cp_image,image)
     check(solocam.solocam_free_frame(self.ctx, bufp))
-
-    #return True, image
+    self.reading = False
+    return True, cp_image
 
   def __del__(self):
     check(solocam.solocam_close(self.ctx))
@@ -65,16 +74,17 @@ class SoloCam(object):
 if __name__ == "__main__":
     import cv2
     import time
-    cam = SoloCam()
+    cam = SoloCamera()
     if cam.isOpened():
         print "Capturing 10 images..."
+        #for i in range(0,10):
         while True:
             start = time.time()
-            #ret, frame = cam.read()
-            cam.read()
+            ret, frame = cam.read()
+            if frame is None:
+                print "None image"
             stop = time.time()
-            print (stop-start)
-        #cv2.imwrite("cap.png",frame)
+            print 1.0 / (stop-start)
     else:
         print "failed to open gopro"
 

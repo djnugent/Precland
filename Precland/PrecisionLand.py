@@ -73,11 +73,23 @@ class PrecisionLand(object):
         self.hfov = config.get_float('camera','hfov',72.3)
         self.vfov = config.get_float('camera','vfov',46)
         self.video = Video(self.camera_src,self.background_capture)
+        self.has_gimbal = self.config.get_boolean('camera', 'has_gimbal', False)
 
-        #non opencv capture device
+
+        #PX4flow as capture device
         if self.camera_src == 'PX4Flow':
-            from Flow_Camera import flow_cam
+            from Flow_Camera import FlowCamera
+            flow_cam = FlowCamera()
             self.video.set_camera(flow_cam)
+
+        #gopro as capture device
+        if self.camera_src == 'gopro':
+            from Solo_Camera import SoloCamera
+            solo_cam = SoloCamera()
+            self.video.set_camera(solo_cam)
+            #clear extra video frames in the background
+            video_clear = Threader(target=solo_cam.clear, args=None, iterations = -1)
+            video_clear.start()
 
 
     def name(self):
@@ -119,7 +131,7 @@ class PrecisionLand(object):
 
         while self.veh_control.is_connected():
 
-            #start thread
+            #start thread if it hasn't been started
             if not control_thread.is_alive():
                 control_thread.start()
 
@@ -174,7 +186,7 @@ class PrecisionLand(object):
 
 
     # process_results - Act on information extracted from image
-    def process_results(self,results, img, origin = Point(tup=(0,0)):
+    def process_results(self,results, img, origin = Point(tup=(0,0))):
         #unpack data
         frame_id, timestamp, altitude = results[0]
         best_ring = results[2]

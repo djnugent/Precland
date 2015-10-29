@@ -56,11 +56,12 @@ class Flow_Camera():
 		return self.distance_mm /1000.0
 
 
-# create a single global object
-flow_cam = Flow_Camera()
+
 
 if __name__ == "__main__":
 	import cv2
+	# create a single global object
+	flow_cam = Flow_Camera()
 	if flow_cam.isOpened():
 
 		while True:

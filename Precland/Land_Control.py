@@ -29,7 +29,6 @@ class Land_Control():
         self.input_scalar = self.config.get_float('land_control', 'input_scalar', 1.0)
         self.update_rate = self.config.get_integer('land_control', 'update_rate', 30)
         self.operation_mode = self.config.get_string('land_control', 'operation_mode', 'velocity')
-
         self.has_gimbal = self.config.get_boolean('camera', 'has_gimbal', False)
 
 
