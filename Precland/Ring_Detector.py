@@ -8,6 +8,8 @@ from cv_utils.helpers import *
 from cv_utils.dataTypes import *
 from cv_utils.benchmark import Benchmark
 
+import EllipseScanner as es
+
 '''
 Possible Optimisations:
 speed up canny(fix image blur-> bilateral works well but is slow or write a better adaptive canny)
@@ -33,6 +35,7 @@ class Ring_Detector(object):
 		#Maximum ratio between outer and inner circle area in a ring
 		self.max_ring_ratio = config.get_float('algorithm', 'max_ring_ratio',0.9)
 
+		self.scanner = es.EllipseScanner(r_min=0.65, r_max=0.80, n_ellipses=4, n_scan_points=72) # TODO: add params to config?
 
 	#analyze_frame_async - process an frame and look for a bullseye asynchronously
 	#params -child_conn: child pipe connection
@@ -303,37 +306,17 @@ class Ring(object):
 		size = Point(tup = ellipse[1])/2
 		angle = np.radians(ellipse[2])
 
-		steps = 72
-		code_length = 6
 		#scan image
-		scan = np.zeros((steps),np.int8)
-		for deg in range(0,steps):
-			rad = math.radians(deg * 360.0 / steps)
-			#scan an ellipse
-			radius = size.x * size.y / np.sqrt(math.pow(size.y*np.sin(rad-angle),2) + math.pow(size.x*np.cos(rad-angle),2))
-
-			scan_lines = (0.65,0.7,0.76,0.8)
-
-			pix = 0.0
-			for i in scan_lines:
-				r = int(round(radius * i))
-				cart = Point(x = r * np.sin(rad),y = -r * np.cos(rad))
-				cart += center
-				cart.x, cart.y = int(round(cart.x)), int(round(cart.y))
-				cart.x, cart.y = max(0,cart.x), max(0,cart.y)
-				cart.x, cart.y = min(cart.x,img.shape[1] - 1), min(cart.y,img.shape[0] - 1)
-				pix += filtered.item(cart.y,cart.x) /255.0
-				#cv2.circle(bal,cart.tuple(),0,color=(127))
-
-			pix /= len(scan_lines)
-			pix = int(round(pix))
-			scan.itemset(deg,pix)
-
-
+		scan, ind = self.scanner.scan_img(img=img, h=size[0], w=size[1], origin=center, theta=angle)
+		# TODO: make sure the above returns scan in the desired format
+		
 		perf.exit(function = 'scan')
 
 		perf.enter()
+
 		#denoise scan
+		code_length = 6
+		steps = 72 			# TODO: this is hardcoded for now but could get this from 'scan' size or integrate these functions into EllipseScanner
 		for i in range(0,steps):
 			#compare value to neighbors
 			depth = code_length / (3 * steps)
