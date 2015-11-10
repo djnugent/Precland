@@ -8,11 +8,11 @@ max_ring_ratio = 0.90
 
 
 [logging]
-location = ~/log/
+location = /log/
 print_level = debug, general, algorithm
 log_level = aircraft , algorithm, general
 display_level = ,
-record_level = raw, gui
+record_level = ,
 record_type = image
 
 [camera]
@@ -41,12 +41,12 @@ always_run = True
 
 [land_control]
 operation_mode = velocity
-init_dec_speed = 1.0
-final_dec_speed = 0.5
+init_dec_speed = 0.5
+final_dec_speed = 0.2
 init_dec_alt = 20
 goto_distance = 1.5
-final_dec_alt = 2
+final_dec_alt = 6
 abort_alt = 5
-landed_alt = 0.5
-input_scalar = 1.0
-update_rate = 10
+landed_alt = 0.25
+input_scalar = 1.2
+update_rate = 12
