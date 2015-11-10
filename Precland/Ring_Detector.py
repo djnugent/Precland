@@ -7,7 +7,6 @@ import numpy as np
 from cv_utils.helpers import *
 from cv_utils.dataTypes import *
 from cv_utils.benchmark import Benchmark
-
 import EllipseScanner as es
 
 '''
@@ -35,8 +34,6 @@ class Ring_Detector(object):
 		#Maximum ratio between outer and inner circle area in a ring
 		self.max_ring_ratio = config.get_float('algorithm', 'max_ring_ratio',0.9)
 
-		self.scanner = es.EllipseScanner(r_min=0.65, r_max=0.80, n_ellipses=4, n_scan_points=72) # TODO: add params to config?
-
 	#analyze_frame_async - process an frame and look for a bullseye asynchronously
 	#params -child_conn: child pipe connection
 	#		-img: raw image to be processed
@@ -51,7 +48,7 @@ class Ring_Detector(object):
 	#analyze_frame - process an frame and look for a bullseye
 	#params -child_conn: child pipe connection
 	#		-img: raw image to be processed
-	#return -runtime: time in millis to process an image        config = Config("precland","~/precland.cnf")
+	#return -runtime: time in millis to process an image		config = Config("precland","~/precland.cnf")
 
 	#		-targetEllipses: ellipses that compose the detected target 'None' when no target
 	def analyze_frame(self, img, frame_id,timestamp,altitude):
@@ -60,9 +57,7 @@ class Ring_Detector(object):
 
 		#check for a colored image
 		if(len(img.shape)>2):
-			#grayscale image
-			img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
+			raise TypeError("Please pass a grayscale image")
 		# Blur image
 		perf.enter()
 		blur = cv2.GaussianBlur(img,(5,5),0)
@@ -114,16 +109,15 @@ class Ring_Detector(object):
 
 		stop = int(time.time() * 1000)
 		#perf.print_package("Ring_Detector")
-		perf.clear()
+		#perf.clear()
 		return ((frame_id,timestamp,altitude), stop-start,best_ring,rings)
 
 
 
 	#detect_rings- Find circles that are nested inside of each other
-	def detect_rings(self,rawCircles,min_ratio,max_ratio, no_overlap = True):
+	def detect_rings(self,rawCircles,min_ratio,max_ratio):
 		size = len(rawCircles)
-		rings = np.empty(size, object)
-		ring_count = 0
+		rings = []
 		for i in xrange(0,size):
 			for j in xrange(i, size):
 				if i != j:
@@ -137,54 +131,35 @@ class Ring_Detector(object):
 
 					distance = circle1.center.distance_to(circle2.center)
 
-
 					#check if a circle is nested within another circle and is the correct size relative to the other
 					if distance < abs(radius1 - radius2):
-						new_ring = None
 						if (radius1 < radius2) and (radius1 * 1.0 /radius2 > min_ratio) and (radius1 * 1.0 /radius2 < max_ratio):
 							#small circle, big circle
-							new_ring = Ring(circle1, circle2)
+							ring = Ring(circle1, circle2)
+							rings.append(ring)
 
 						elif (radius1 > radius2) and (radius2 * 1.0 / radius1 > min_ratio) and (radius2 * 1.0 / radius1 < max_ratio):
 							#small circle, big circle
-							new_ring = Ring(circle2, circle1)
+							ring = Ring(circle2, circle1)
+							rings.append(ring)
 
-					 	if new_ring is not None:
-							#check for overlap if one or more rings already exists
-							if no_overlap and ring_count > 0:
-								bad_rings = []
-								drop_new = False
-								for k in range(0,len(rings)):
-									exist_ring = rings[k]
-									if exist_ring is None:
-											break
-									else:
-										#if rings overlap then keep the one with smallest inner radius
-										distance = exist_ring.center.distance_to(new_ring.center)
-										if distance < (exist_ring.outer_circle.radius + new_ring.outer_circle.radius):
-											if exist_ring.inner_circle.radius > new_ring.inner_circle.radius:
-												bad_rings.append(k)
-											else:
-												drop_new = True
-								#remove overlapping rings
-								if not drop_new:
-									#remove bad rings
-									rings = np.delete(rings,bad_rings)
-									ring_count -= len(bad_rings)
-									#add new ring
-									rings[ring_count] = new_ring
-									ring_count += 1
-								#else dont add new ring
-								break;
-							else:
-								rings[ring_count] = new_ring
-								ring_count += 1
-							break
 
-		#remove null objects
-		rings  = np.resize(rings,ring_count)
+		#only keep the smallest of overlapping rings
+		clean_rings = []
+		for i in range(0,len(rings)):
+			smallest = True
+			r0 = rings[i]
+			for j in range(0,len(rings)):
+				if j != i:
+					r1 = rings[j]
+					overlap = (r0.center.distance_to(r1.center) < r0.outer_circle.radius + r1.outer_circle.radius)
+					if overlap and (r0.outer_circle.radius >= r1.outer_circle.radius) and (r0.inner_circle.radius >= r1.inner_circle.radius):
+						smallest = False
+						break
+			if smallest:
+				clean_rings.append(r0)
 
-		return rings
+		return clean_rings
 
 
 	def detect_circles(self, orig, eccentricity, area_ratio, min_radius = 0, max_radius = 500000):
@@ -196,18 +171,29 @@ class Ring_Detector(object):
 		contours, hierarchy = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
 		#turn contours into circles
-		circles = np.empty((len(contours)),object)
+		circles = []
 		circlesCnt = 0
 		for i in xrange(0,len(contours)):
 			contour = contours[i]
 
 			circle = self.fit_circle(contour, eccentricity, area_ratio, min_radius, max_radius)
 			if circle is not None:
-				circles[circlesCnt] = circle
+				circles.append(circle)
 				circlesCnt += 1
-		circles = np.resize(circles,circlesCnt)
-		return circles
 
+		clean_circles = []
+		i = 0
+		while i < len(circles):
+			c = circles[i]
+			c1 = circles[(i + 1)% len(circles)]
+			clean_circles.append(c)
+			if c == c1:
+				i +=2
+			else:
+				i +=1
+		return clean_circles
+
+		return circles
 
 
 
@@ -219,12 +205,13 @@ class Ring_Detector(object):
 		c_area = cv2.contourArea(hull)
 
 		#check for a shape of a certain size and corner resolution
-		if len(hull) > 4 and c_area > min_area and c_area < max_area:
+		if len(hull) > 4:
 
 			#fit an ellipse
 			ellipse = cv2.fitEllipse(hull)
+			radius = int((ellipse[1][0] + ellipse[1][0]) /4.0)
 			#check for a circular ellipse
-			if ellipse[1][0] * 1.0/ ellipse[1][1] > eccentricity:
+			if ellipse[1][0] * 1.0/ ellipse[1][1] > eccentricity and max_radius > radius > min_radius:
 				#compare area of raw hull vs area of ellipse to ellinate objects with corners
 				e_area = (ellipse[1][0]/2.0) * (ellipse[1][1]/2.0) * math.pi
 				if (c_area / e_area) > area_ratio:
@@ -246,7 +233,13 @@ class Circle(object):
 		self.ellipse = ellipse
 
 	def __str__(self):
-		return "Center: {0} Radius: {1}".format(self.center,self.radius)
+		return "Center: {0} Radius: {1} dist: {2}".format(self.center,self.radius, self.center.distance_to(Point(0,0)))
+
+	def __eq__(self,other):
+		return self.center.x == other.center.x and self.center.y == other.center.y and self.radius == other.radius
+
+	def __ne__(self,other):
+		return self.center.x != other.center.x or self.center.y != other.center.y or self.radius != other.radius
 
 
 class Ring(object):
@@ -259,6 +252,7 @@ class Ring(object):
 		self.code = code
 		self.calc_radius(0)
 		self.calc_center(0)
+		self.scanner = es.EllipseScanner(r_min=0.65, r_max=0.80, n_ellipses=4, n_scan_points=72) # TODO: add params to config?
 
 	def calc_radius(self, type):
 		if type == 0:
@@ -307,30 +301,38 @@ class Ring(object):
 		angle = np.radians(ellipse[2])
 
 		#scan image
-		scan, ind = self.scanner.scan_img(img=img, h=size[0], w=size[1], origin=center, theta=angle)
-		# TODO: make sure the above returns scan in the desired format
-		
+		scan, ind = self.scanner.scan_img(img=filtered, h=h, w=w, theta=angle)
 		perf.exit(function = 'scan')
 
 		perf.enter()
+		#dilate
+		kernel = 5
+		dilated_scan = np.zeros(len(scan),dtype=int)
+		for i in range(0,len(scan)):
+			if scan.item(i) == 1:
+				for k in range(1,kernel/2 + 1):
+					left = (i-k) % len(scan)
+					right = (i + k) % len(scan)
+					dilated_scan.itemset(left,1)
+					dilated_scan.itemset(right,1)
 
-		#denoise scan
-		code_length = 6
-		steps = 72 			# TODO: this is hardcoded for now but could get this from 'scan' size or integrate these functions into EllipseScanner
-		for i in range(0,steps):
-			#compare value to neighbors
-			depth = code_length / (3 * steps)
-			low = (i - depth) % steps
-			high = (i + depth) % steps + 1
-			if low > high:
-				scan.itemset(i,int(round(np.average(np.concatenate((scan[low:steps], scan[0:high]))))))
-			else:
-				scan.itemset(i,int(round(np.average(scan[low:high]))))
+		scan = dilated_scan
+		#errode
+		erroded_scan = np.ones(len(scan),dtype=int)
+		for i in range(0,len(scan)):
+			if scan.item(i) == 0:
+				for k in range(1,kernel/2 + 1):
+					left = (i-k) % len(scan)
+					right = (i + k) % len(scan)
+					erroded_scan.itemset(left,0)
+					erroded_scan.itemset(right,0)
+		scan = erroded_scan
 
 
 
 		perf.exit(function = 'denoise')
-
+		code_length = 6
+		steps = len(scan)
 		if 0.6 > np.average(scan) > 0.4:
 			perf.enter()
 			#detect edges
@@ -371,22 +373,18 @@ class Ring(object):
 							length = b[0] - a[0]
 					segments.append((bit,orientation,length))
 
+				#read target orientation
 				perf.enter()
-				#extract target orientation
-				target_orientation = 0
+				largest_segment = (0,0,0)
 				bit_shift = 0
-				for i in range(0,len(segments)):
+				for i in range(0, len(segments)):
 					seg = segments[i]
 					bit,orient,length = seg
-					#round up > 0.7
-					m = math.modf(length* 8.0/steps)
-					width = int(m[1]) + (1 if m[0] > 0.7 else 0)
-					if width == 2 and bit == 1:
-						self.orientation = orient * 360.0/steps
+					if bit == 1 and length > largest_segment[2]:
+						largest_segment = seg
 						bit_shift = i
 
-
-
+				self.orientation = (largest_segment[1] * 360.0/steps + math.degrees(angle)) % 360
 				perf.exit(function = 'target_orientation')
 
 				perf.enter()
@@ -396,13 +394,12 @@ class Ring(object):
 				for i in range(0,len(segments)):
 					seg = segments[(i + bit_shift) % len(segments)]
 					bit,orientation,length = seg
+					#m = math.modf(length* 8.0/steps)
+					#width = int(m[1]) + (1 if m[0] > 0.7 else 0) #round up > 0.7
 					width = int(round(length * 8.0/steps))
-
 					for j in range(0,width):
 						self.code |= bit << abs(bit_count) #FIXME neg bitcount
 						bit_count -= 1
-
-
 
 				perf.exit(function = 'read_code')
 				print "Code: {0}, Orient: {1} degs".format(self.code,self.orientation)
@@ -425,20 +422,15 @@ class Ring(object):
 		cv2.circle(img,self.center.tuple(), self.inner_circle.radius,color, thickness=1)
 		cv2.circle(img,self.center.tuple(), self.outer_circle.radius,color, thickness=1)
 		if self.is_valid():
-			x = self.center.x + int(self.inner_circle.radius * math.sin(self.orientation))
-			y = self.center.y - int(self.inner_circle.radius * math.cos(self.orientation))
+			x = self.center.x + int(self.inner_circle.radius * math.cos(math.radians(self.orientation)))
+			y = self.center.y - int(self.inner_circle.radius * math.sin(math.radians(self.orientation)))
 			cv2.line(img,self.center.tuple(),(x,y),(255,255,255), thickness=1 )
-
-
-
 
 		return img
 
 
 if __name__ == "__main__":
 	import argparse
-	from Flow_Camera import flow_cam
-	from GUI import PrecisionLandGUI as gui
 	from cv_utils.ImageRW import *
 	from cv_utils.config import Config
 	#parse arguments
@@ -446,7 +438,7 @@ if __name__ == "__main__":
 	#optional arguments
 	parser.add_argument('-c', '--camera', default=0, help='Camera source: index, file, or stream')
 	parser.add_argument('-i', '--input', default= None, help='use an image folder as an input instead of a camera input')
-	parser.add_argument('-f', '--file', default='~/precland_default.cnf', help='load a config file other than the default')
+	parser.add_argument('-f', '--file', default='~/precland/precland_default.cnf', help='load a config file other than the default')
 	parser.add_argument('-w', '--write', default=False)
 
 	args, unknown = parser.parse_known_args()
@@ -476,11 +468,19 @@ if __name__ == "__main__":
 
 	detector = Ring_Detector(config)
 	frame_id = 0
+	total = 0
+	count = 0
 	if cam is not None and cam.isOpened():
 		while True:
 			#print frame_id
 			ret, img = cam.read()
 			if(img is not None and ret == True):
+				#check for a colored image
+				if(len(img.shape)>2):
+					#grayscale image
+					img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+				img = cv2.resize(img,(0,0),fx = 0.5, fy = 0.5)
+
 				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
 
@@ -498,20 +498,24 @@ if __name__ == "__main__":
 					rend_Image = best_ring.render_overlay(rend_Image,(0,0,255))
 					radius = best_ring.radius
 					if best_ring.is_valid():
-						yaw = int(math.degrees(results[2].orientation))
+						yaw = int(results[2].orientation)
 
 				#overlay stats
 				status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, 0)
 				rend_Image = add_stats(rend_Image,status_text,5, 250)
+				if len(rings) > 0:
+					total += results[1]
+					count += 1
 				if(args.write):
 					writer.write(rend_Image)
 
-				cv2.imshow('gui', rend_Image)
-				cv2.waitKey(1)
+				#cv2.imshow('gui', rend_Image)
+				#cv2.waitKey(1)
 				print status_text.replace('\n', ', ')
 
 			else:
+				print "average", (total * 1.0)/count
 				print "failed to grab image"
-				break;
+				break
 	else:
 		print "No video source detected"

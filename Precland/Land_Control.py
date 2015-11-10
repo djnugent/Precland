@@ -92,9 +92,9 @@ class Land_Control():
                 #shift position
                 veh_home = self.v_controller.get_home()
                 target_loc_global = earthframe_rad_to_global(ef_angular_offset, self.location, self.alt_above_terrain)
-                target_loc_global.alt = curr_alt
+                target_loc_global.alt = curr_alt - 1
                 self.v_controller.get_vehicle().commands.goto(target_loc_global)
-                print "Sent goto dist {0}".format(round(dist_to_target))
+                print "Sent goto dist {0}".format(round(dist_to_target,2))
 
             #Fine control(velocity control)
             elif curr_alt > self.landed_alt:
@@ -112,7 +112,7 @@ class Land_Control():
                     #shift position
                     veh_home = self.v_controller.get_home()
                     target_loc_global = earthframe_rad_to_global(ef_angular_offset, self.location, self.alt_above_terrain)
-                    target_loc_global.alt = curr_alt - 1.0
+                    target_loc_global.alt = curr_alt - 0.25
                     self.v_controller.get_vehicle().commands.goto(target_loc_global)
 
                 elif self.operation_mode == 'velocity':

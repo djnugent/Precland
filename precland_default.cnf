@@ -1,8 +1,8 @@
 #default config file
 [algorithm]
-eccentricity = 0.7
-min_radius = 14
-area_ratio = 0.85
+eccentricity = 0.8
+min_radius = 9
+area_ratio = 0.8
 min_ring_ratio =  0.70
 max_ring_ratio = 0.90
 
@@ -16,7 +16,7 @@ record_level = raw, gui
 record_type = image
 
 [camera]
-source = /home/daniel/shared/sololink.sdp
+source = 0
 background_capture = False
 has_gimbal = True
 horizontal-fov = 94.3
@@ -29,10 +29,10 @@ distortion = 0.12269303 -0.26618881 0.00129035 0.00081791 0.17005303
 
 
 [simulator]
-use_simulator = False
-width = 352
-height = 352
-frame_rate = 10
+use_simulator = True
+width = 640
+height = 640
+frame_rate = 5
 target_size = 2
 target_location = ~/precland/Targets/mat_v1.jpg
 

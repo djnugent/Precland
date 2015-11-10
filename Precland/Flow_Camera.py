@@ -8,7 +8,7 @@ import struct
 
 #Make the PX4Flow sensor behave as a webcam
 #Thanks to Kevin Mehall for his contribution
-class Flow_Camera():
+class FlowCamera():
 	def __init__(self):
 		#consts
 		self.SIZE = 352
@@ -23,6 +23,7 @@ class Flow_Camera():
 		image = np.zeros((self.SIZE, self.SIZE), dtype='uint8')
 
 		#open connection
+		self.dev, self.endpoint = None, None
 		try:
 			self.dev = usb.core.find(idVendor=0x26ac, idProduct=0x0015)
 			self.endpoint = self.dev[0][(2,0)][0]

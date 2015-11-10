@@ -43,6 +43,7 @@ Future:
 -add parameter set over mavlink
 '''
 
+perf = Benchmark("PrecisionLand")
 
 class PrecisionLand(object):
 
@@ -136,14 +137,14 @@ class PrecisionLand(object):
                 control_thread.start()
 
             #we are in a landing mode and we are still running the landing program
-            if (self.always_run or self.veh_control.get_mode() == "LAND" or self.veh_control.get_mode() == "RTL") and self.veh_control.is_armed():
-
+            if self.always_run or ((self.veh_control.get_mode() == "LAND" or self.veh_control.get_mode() == "RTL") and self.veh_control.is_armed()):
+                start = time.time()
                 #grab vehicle pos
                 ret, location = self.veh_control.get_location()
                 ret, attitude = self.veh_control.get_attitude()
                 altitude = location.alt #alt above terrain not used...yet
                 timestamp = 0 # not used...yet
-
+                perf.enter()
                 # grab an image
                 frame = None
                 if(self.use_simulator):
@@ -153,26 +154,26 @@ class PrecisionLand(object):
                 else:
                     ret,frame = self.video.get_image()
 
-                #try to identify target near it's last location to save processing time
-                if self.last_target is not None and self.has_gimbal:
-                    roi, origin = crop_to_last_target(frame)
-                    roi_result = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
-                    #we found the target in cropped image
-                    if roi_results[2] is not None:
-                        self.last_target = self.process_results(roi_results, frame, origin)
-                    #lost track, process full image
-                    else:
-                        results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
-                        self.last_target = self.process_results(results, frame)
-                else:
-                    #run target detector
-                    results = detector.analyze_frame(frame,self.frames_captured,timestamp,altitude)
-                    #process image data
-                    self.last_target = self.process_results(results, frame)
+                if(len(frame.shape)>2):
+                    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+                perf.exit(function = 'get_image')
 
-
+                perf.enter()
+                small_frame, scale = self.reduce_frame(frame, 0.5 , 7 ,altitude)
+                perf.exit(function='reduce_frame')
+                #run target detector
+                perf.enter()
+                results = detector.analyze_frame(small_frame,self.frames_captured,timestamp,altitude)
+                perf.exit(function='analyze_frame')
+                perf.enter()
+                #process image data
+                self.last_target = self.process_results(results, small_frame,scale)
+                perf.exit(function='process_results')
+                perf.print_package("PrecisionLand")
+                perf.clear()
                 self.frames_captured += 1
-
+                stop = time.time()
+                print "fps", round(1.0/(stop-start),1)
             else:
                 self.logger.text(self.logger.GENERAL, 'Not in landing mode')
                 time.sleep(0.5)
@@ -186,7 +187,7 @@ class PrecisionLand(object):
 
 
     # process_results - Act on information extracted from image
-    def process_results(self,results, img, origin = Point(tup=(0,0))):
+    def process_results(self,results, img,scale = 1.0):
         #unpack data
         frame_id, timestamp, altitude = results[0]
         best_ring = results[2]
@@ -197,11 +198,14 @@ class PrecisionLand(object):
 
         yaw , radius = None, None
         #create a shallow copy of img
-        rend_Image = np.copy(img)
+        #rend_Image = np.copy(img)
+        rend_Image = img
         if best_ring is not None:
             for r in rings:
                 rend_Image = r.render_overlay(rend_Image,(255,0,0))
+
             rend_Image = best_ring.render_overlay(rend_Image,(0,0,255))
+
             radius = best_ring.radius
             if best_ring.is_valid():
                 yaw = int(math.degrees(results[2].orientation))
@@ -220,15 +224,21 @@ class PrecisionLand(object):
 
         #feed our land controller with new info if we have it
         if best_ring is not None:
-            best_ring.center += origin
-            angular_offset = best_ring.get_angular_offset(img_width, img_height, self.hfov, self.vfov)
+            angular_offset = best_ring.get_angular_offset(img_width, img_height, self.hfov * scale, self.vfov * scale)
             self.land_control.consume_target_offset(angular_offset,timestamp)
 
         return best_ring
 
-    def crop_to_last_target():
-        pass
 
+    def reduce_frame(self, image, scale, alt_thres, altitude):
+        if altitude > alt_thres:
+            img_size = Point(image.shape[1], image.shape[0])
+            image, origin = roi(image, img_size * scale, img_size/2)
+        else:
+            image = cv2.resize(image,(0,0), fx = scale,fy = scale)
+            scale = 1.0
+
+        return image, scale
 
 # if starting from mavproxy
 if __name__ == "__builtin__":

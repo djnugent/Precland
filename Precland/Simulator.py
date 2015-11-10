@@ -204,7 +204,7 @@ class PrecisionLandSimulator():
             pass
         self.last_update_time = time.time()
 
-        return True,sim
+        return True,cv2.cvtColor(sim,cv2.COLOR_BGR2GRAY)
 
 
 
