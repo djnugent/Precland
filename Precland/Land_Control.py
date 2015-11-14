@@ -43,7 +43,7 @@ class Land_Control():
     #take in target data
     def consume_target_offset(self,angular_offset, timestamp = 0, alt_above_terrain = None):
         mode = self.v_controller.get_mode()
-        if mode == 'LAND' or mode == 'RTL':
+        if mode == 'LAND' or mode == 'RTL' or mode == 'GUIDED':
             self.timestamp = timestamp
             self.angular_offset = angular_offset
             ret_l, self.location = self.v_controller.get_location(self.timestamp)
