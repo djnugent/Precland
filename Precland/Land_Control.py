@@ -26,8 +26,9 @@ class Land_Control():
         self.final_dec_alt = self.config.get_float('land_control' , 'final_dec_alt', 2)
         #self.abort_alt = self.config.get_float('land_control', 'abort_alt', 5)
         self.landed_alt = self.config.get_float('land_control', 'landed_alt', 0.5)
-        self.input_scalar = self.config.get_float('land_control', 'input_scalar', 1.0)
-        self.update_rate = self.config.get_integer('land_control', 'update_rate', 30)
+        self.horz_scalar = self.config.get_float('land_control', 'horz_scalar', 1.0)
+        self.vert_scalar = self.config.get_float('land_control', 'vert_scalar', 1.0)
+        self.update_rate = self.config.get_integer('land_control', 'update_rate', 30) #range 0.0 - 10.0
         self.operation_mode = self.config.get_string('land_control', 'operation_mode', 'velocity')
         self.has_gimbal = self.config.get_boolean('camera', 'has_gimbal', False)
 
@@ -43,7 +44,7 @@ class Land_Control():
     #take in target data
     def consume_target_offset(self,angular_offset, timestamp = 0, alt_above_terrain = None):
         mode = self.v_controller.get_mode()
-        if mode == 'LAND' or mode == 'RTL':
+        if mode == 'LAND' or mode == 'RTL' or mode == "GUIDED":
             self.timestamp = timestamp
             self.angular_offset = angular_offset
             ret_l, self.location = self.v_controller.get_location(self.timestamp)
@@ -124,10 +125,9 @@ class Land_Control():
                     else:
                         descent_vel = self.final_dec_speed
 
-                    vel = self.calc_vel_vector(ef_angular_offset, descent_vel, self.input_scalar)
+                    vel = self.calc_vel_vector(ef_angular_offset, descent_vel, self.horz_scalar,self.vert_scalar)
                     self.v_controller.set_velocity(vel[0],vel[1],vel[2])
                     print "Sent Vel Mag: {0}, Vx: {1}, Vy: {2}, Vx:{3}".format(round(descent_vel,2),round(vel[0],2),round(vel[1],2),round(vel[2],2))
-
 
 
             #touchdown
@@ -139,10 +139,11 @@ class Land_Control():
 
 
 
-    def calc_vel_vector(self, angular_offset,descent_vel,scalar = 1.0):
+    def calc_vel_vector(self, angular_offset,descent_vel, horz_scalar = 1.0,vert_scalar =1.0):
 
-        vx = descent_vel * math.sin(angular_offset.x * scalar)
-        vy = descent_vel * math.sin(angular_offset.y * scalar)
-        vz = math.sqrt(descent_vel**2 - vx**2 - vy**2)
+        vx = descent_vel * math.sin(angular_offset.x*horz_scalar)
+        vy = descent_vel * math.sin(angular_offset.y*horz_scalar)
+        mag_offset = math.sqrt(angular_offset.x**2 + angular_offset.y**2)
+        vz = math.sqrt(descent_vel**2 - vx**2 - vy**2) * max(1-(mag_offset*vert_scalar),0)
 
         return (vx,vy,vz)

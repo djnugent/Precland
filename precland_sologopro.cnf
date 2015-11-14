@@ -48,5 +48,6 @@ goto_distance = 1.5
 final_dec_alt = 6
 abort_alt = 5
 landed_alt = 0.25
-input_scalar = 1.2
+horz_scalar = 1.0
+vert_scalar = 5.0
 update_rate = 12

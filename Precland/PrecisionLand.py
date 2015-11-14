@@ -169,7 +169,7 @@ class PrecisionLand(object):
                 #process image data
                 self.last_target = self.process_results(results, small_frame,scale)
                 perf.exit(function='process_results')
-                perf.print_package("PrecisionLand")
+                #perf.print_package("PrecisionLand")
                 perf.clear()
                 self.frames_captured += 1
                 stop = time.time()
