@@ -93,7 +93,7 @@ class Land_Control():
                 #shift position
                 veh_home = self.v_controller.get_home()
                 target_loc_global = earthframe_rad_to_global(ef_angular_offset, self.location, self.alt_above_terrain)
-                target_loc_global.alt = curr_alt - 1
+                target_loc_global.alt = curr_alt
                 self.v_controller.get_vehicle().commands.goto(target_loc_global)
                 print "Sent goto dist {0}".format(round(dist_to_target,2))
 
@@ -113,7 +113,7 @@ class Land_Control():
                     #shift position
                     veh_home = self.v_controller.get_home()
                     target_loc_global = earthframe_rad_to_global(ef_angular_offset, self.location, self.alt_above_terrain)
-                    target_loc_global.alt = curr_alt - 0.25
+                    target_loc_global.alt = curr_alt
                     self.v_controller.get_vehicle().commands.goto(target_loc_global)
 
                 elif self.operation_mode == 'velocity':
@@ -127,7 +127,7 @@ class Land_Control():
 
                     vel = self.calc_vel_vector(ef_angular_offset, descent_vel, self.horz_scalar,self.vert_scalar)
                     self.v_controller.set_velocity(vel[0],vel[1],vel[2])
-                    print "Sent Vel Mag: {0}, Vx: {1}, Vy: {2}, Vx:{3}".format(round(descent_vel,2),round(vel[0],2),round(vel[1],2),round(vel[2],2))
+                    print "Sent Vel Mag: {0}, Vx: {1}, Vy: {2}, Vz:{3}".format(round(descent_vel,2),round(vel[0],2),round(vel[1],2),round(vel[2],2))
 
 
             #touchdown
