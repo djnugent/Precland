@@ -89,11 +89,14 @@ class Land_Control():
             dist_to_target = PositionVector().get_distance_xy(target_loc_global,veh_loc_global)
 
             #Rough location adjustment(GPS shifting) when far from target
-            if curr_alt > self.final_dec_alt and dist_to_target > self.goto_distance:
+            if curr_alt > self.final_dec_alt:
                 #shift position
                 veh_home = self.v_controller.get_home()
                 target_loc_global = earthframe_rad_to_global(ef_angular_offset, self.location, self.alt_above_terrain)
                 target_loc_global.alt = curr_alt
+                if dist_to_target < self.goto_distance:
+                    target_loc_global.alt -= 1
+
                 self.v_controller.get_vehicle().commands.goto(target_loc_global)
                 print "Sent goto dist {0}".format(round(dist_to_target,2))
 

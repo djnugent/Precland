@@ -41,13 +41,13 @@ always_run = True
 
 [land_control]
 operation_mode = velocity
-init_dec_speed = 0.5
-final_dec_speed = 0.2
+init_dec_speed = 1.2
+final_dec_speed = 0.35
 init_dec_alt = 20
-goto_distance = 1.5
-final_dec_alt = 6
+goto_distance = 1.0
+final_dec_alt = 3.0
 abort_alt = 5
 landed_alt = 0.25
-horz_scalar = 1.0
-vert_scalar = 5.0
+horz_scalar = 1.2
+vert_scalar = 0.0
 update_rate = 12
