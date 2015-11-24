@@ -211,7 +211,7 @@ class PrecisionLand(object):
                 yaw = int(math.degrees(results[2].orientation))
 
         #overlay stats
-        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(altitude))
+        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, round(altitude,2))
         rend_Image = add_stats(rend_Image,status_text, 5, 250)
 
         #show/record images

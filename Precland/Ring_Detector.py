@@ -243,7 +243,7 @@ class Circle(object):
 
 
 class Ring(object):
-	def __init__(self, inner_circle, outer_circle, center = None, radius = None, orientation = None, code = None):
+	def __init__(self, inner_circle, outer_circle, center = None, radius = None, orientation = 0, code = None):
 		self.inner_circle = inner_circle
 		self.outer_circle = outer_circle
 		self.center = center
