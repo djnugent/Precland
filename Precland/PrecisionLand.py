@@ -169,7 +169,7 @@ class PrecisionLand(object):
                 #process image data
                 self.last_target = self.process_results(results, small_frame,scale)
                 perf.exit(function='process_results')
-                perf.print_package("PrecisionLand")
+                #perf.print_package("PrecisionLand")
                 perf.clear()
                 self.frames_captured += 1
                 stop = time.time()
@@ -211,7 +211,7 @@ class PrecisionLand(object):
                 yaw = int(math.degrees(results[2].orientation))
 
         #overlay stats
-        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, int(altitude))
+        status_text = '{0} Rings\n{1} ms\n{2} degs\n{3} radius\n{4} meters'.format(len(results[3]), results[1], yaw, radius, round(altitude,2))
         rend_Image = add_stats(rend_Image,status_text, 5, 250)
 
         #show/record images

@@ -1,25 +1,25 @@
-#default config file
+#Solo Gopro config file
 [algorithm]
-eccentricity = 0.8
+eccentricity = 0.7
 min_radius = 9
-area_ratio = 0.8
+area_ratio = 0.85
 min_ring_ratio =  0.70
 max_ring_ratio = 0.90
 
 
 [logging]
-location = ~/precland/
+location = /log/
 print_level = debug, general, algorithm
 log_level = aircraft , algorithm, general
-display_level = raw, gui
-record_level = raw, gui
+display_level = ,
+record_level = ,
 record_type = image
 
 [camera]
-source = 0
+source = gopro
 background_capture = False
 has_gimbal = True
-horizontal-fov = 94.3
+horizontal-fov = 94.4
 vertical-fov = 55.0
 matrix = 614.01269552 0.0 315.00073982
 	0.0 614.43556296 237.14926858
@@ -29,10 +29,10 @@ distortion = 0.12269303 -0.26618881 0.00129035 0.00081791 0.17005303
 
 
 [simulator]
-use_simulator = True
-width = 640
-height = 640
-frame_rate = 5
+use_simulator = False
+width = 1280
+height = 720
+frame_rate = 30
 target_size = 2
 target_location = ~/precland/Targets/mat_v1.jpg
 
@@ -41,12 +41,16 @@ always_run = True
 
 [land_control]
 operation_mode = velocity
-init_dec_speed = 1.0
-final_dec_speed = 0.5
+init_dec_speed = 1.2
+final_dec_speed = 0.35
 init_dec_alt = 20
-goto_distance = 1.5
-final_dec_alt = 2
+goto_alt_step = 0.75
+goto_distance = 0.5
+final_dec_alt = 3.5
 abort_alt = 5
-landed_alt = 0.5
-input_scalar = 1.0
-update_rate = 10
+landed_alt = 0.25
+horz_scalar = 1.2
+vert_scalar = 0
+horz_offset = 0
+vert_offset = -5.0
+update_rate = 12
