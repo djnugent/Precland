@@ -37,7 +37,7 @@ target_size = 2
 target_location = ~/precland/Targets/mat_v1.jpg
 
 [general]
-always_run = True
+always_run = False
 
 [land_control]
 operation_mode = velocity

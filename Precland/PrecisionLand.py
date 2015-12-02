@@ -243,7 +243,7 @@ class PrecisionLand(object):
 # if starting from mavproxy
 if __name__ == "__builtin__":
     #load config file
-    config = Config("precland","~/precland/precland_default.cnf")
+    config = Config("precland","/home/root/precland/precland_default.cnf")
 
     # start precision landing
     strat = PrecisionLand(config)
