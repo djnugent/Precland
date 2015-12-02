@@ -116,8 +116,6 @@ class Land_Control():
 
             #Rough location adjustment(GPS shifting) when far from target
             if curr_alt > self.final_dec_alt:
-                #calculate earth frame angular offset to target
-                ef_angular_offset = bodyframe_to_earthframe(self.angular_offset, self.attitude, ignore_tilt = self.has_gimbal)
                 #shift position
                 target_loc_global.alt = curr_alt
                 if dist_to_target < self.goto_distance:

@@ -137,13 +137,13 @@ class PrecisionLand(object):
                 control_thread.start()
 
             #we are in a landing mode and we are still running the landing program
-            if self.always_run or ((self.veh_control.get_mode() == "LAND" or self.veh_control.get_mode() == "RTL") and self.veh_control.is_armed()):
+            if self.always_run or (self.veh_control.get_mode() == "LAND" or self.veh_control.get_mode() == "RTL" or self.veh_control.get_mode() == "GUIDED"):
                 start = time.time()
                 #grab vehicle pos
                 ret, location = self.veh_control.get_location()
                 ret, attitude = self.veh_control.get_attitude()
                 altitude = location.alt #alt above terrain not used...yet
-                timestamp = 0 # not used...yet
+                timestamp = 0 # timestamp when frame was grabbed in vehicle time
                 perf.enter()
                 # grab an image
                 frame = None
@@ -152,6 +152,7 @@ class PrecisionLand(object):
                     self.sim.refresh_simulator(location,attitude)
                     ret,frame = self.sim.get_image()
                 else:
+                    #timestamp = self.veh_control.time_us()
                     ret,frame = self.video.get_image()
 
                 if(len(frame.shape)>2):
@@ -225,6 +226,7 @@ class PrecisionLand(object):
         #feed our land controller with new info if we have it
         if best_ring is not None:
             angular_offset = best_ring.get_angular_offset(img_width, img_height, self.hfov * scale, self.vfov * scale)
+            print "timestamp",timestamp
             self.land_control.consume_target_offset(angular_offset,timestamp)
 
         return best_ring
@@ -242,14 +244,30 @@ class PrecisionLand(object):
 
 # if starting from mavproxy
 if __name__ == "__builtin__":
-    #load config file
-    config = Config("precland","/home/root/precland/precland_default.cnf")
+    try:
+        #load config file
+        config = Config("precland","/home/root/precland/precland_default.cnf")
 
-    # start precision landing
-    strat = PrecisionLand(config)
+        # start precision landing
+        strat = PrecisionLand(config)
 
-    # connect to droneapi
-    strat.connect()
+        # connect to droneapi
+        strat.connect()
 
-    # run strategy
-    strat.run()
+        # run strategy
+        strat.run()
+    except:
+        import inspect
+        st = ''
+        st += 'Traceback (most recent call last):\n'
+        for item in reversed(inspect.stack()[2:]):
+            st += '    File "{1}", line {2}, in {3}\n'.format(*item)
+        for line in item[4]:
+            st += '    ' + line.lstrip()
+        for item in inspect.trace():
+            st += '        File "{1}", line {2}, in {3}\n'.format(*item)
+        for line in item[4]:
+            st += '    ' + line.lstrip()
+        f = file("/pl.log","w")
+        f.write(st)
+        f.close()
