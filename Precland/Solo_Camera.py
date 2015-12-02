@@ -2,6 +2,7 @@ import ctypes
 from ctypes import *
 import numpy as np
 import time
+import os
 
 solocam = CDLL('/home/root/precland/Precland/libsolocam.so')
 
@@ -21,6 +22,7 @@ BUF_P = POINTER(BUF)
 
 class SoloCamera(object):
   def __init__(self):
+    os.system("modprobe mxc_v4l2_capture")
     self.ctx = c_void_p()
     check(solocam.solocam_open_hdmi(byref(self.ctx)))
     check(solocam.solocam_set_format_720p60_grayscale(self.ctx))
