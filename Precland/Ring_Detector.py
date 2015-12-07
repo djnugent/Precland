@@ -7,6 +7,7 @@ import numpy as np
 from cv_utils.helpers import *
 from cv_utils.dataTypes import *
 from cv_utils.benchmark import Benchmark
+from StringIO import StringIO
 import EllipseScanner as es
 
 '''
@@ -271,13 +272,27 @@ class Ring(object):
 			self.center = (self.inner_circle.center + self.outer_circle.center) / 2
 
 	def get_angular_offset(self, img_width, img_height, hfov, vfov):
+
 		x_pixel = self.center.x - (img_width/2.0)
 		y_pixel = self.center.y - (img_height/2.0) #y-axis is inverted??? Works with arducopter
 
 		#convert target location to angular radians
-		x_angle = x_pixel * (hfov / img_width) * (math.pi/180.0)
-		y_angle = y_pixel * (vfov / img_height) * (math.pi/180.0)
+		x_angle = math.radians(x_pixel * (hfov / img_width))
+		y_angle = math.radians(y_pixel * (vfov / img_height))
 		return Point3(x_angle,y_angle, self.orientation)
+
+	def get_xyz_meters(self,target_size_meters, img_width, img_height, hfov, vfov):
+		rad_per_pixel_h = math.radians(hfov / img_width)
+		rad_per_pixel_v = math.radians(vfov / img_height)
+		angular_offset = self.get_angular_offset(img_width, img_height, hfov, vfov)
+		mag_offset = math.sqrt(angular_offset.x**2 + angular_offset.y**2)
+
+		dist = (target_size_meters /2) / math.tan((rad_per_pixel_h + rad_per_pixel_v)/2 * self.inner_circle.radius)
+		z = dist * math.cos(mag_offset) #/1.1
+
+		x = z * math.tan(angular_offset.x)
+		y = z * math.tan(angular_offset.y)
+		return Point3(x,y,z)
 
 	def decode(self,img):
 
@@ -479,7 +494,10 @@ if __name__ == "__main__":
 				if(len(img.shape)>2):
 					#grayscale image
 					img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-				img = cv2.resize(img,(0,0),fx = 0.5, fy = 0.5)
+				matrix  = np.loadtxt(StringIO( "764.36600634 0.0 663.58169499\n0.0 764.86442335 363.45071788\n0.0 0.0 1.0"))
+				distortion = np.loadtxt(StringIO("-0.29435659  0.14030301 0.0 0.0 0.0"))
+				#img = cv2.undistort(img,matrix,distortion,None)
+				#img = cv2.resize(img,(0,0),fx = 0.5, fy = 0.5)
 
 				results = detector.analyze_frame(img,frame_id,0,0)
 				frame_id += 1
@@ -496,7 +514,9 @@ if __name__ == "__main__":
 					for r in rings:
 						rend_Image = r.render_overlay(rend_Image,(255,0,0))
 					rend_Image = best_ring.render_overlay(rend_Image,(0,0,255))
-					radius = best_ring.radius
+					radius = best_ring.inner_circle.radius
+					print best_ring.get_xyz_meters(0.60325, 1280, 720, 97.3044, 58.2197)
+
 					if best_ring.is_valid():
 						yaw = int(results[2].orientation)
 
@@ -509,9 +529,9 @@ if __name__ == "__main__":
 				if(args.write):
 					writer.write(rend_Image)
 
-				#cv2.imshow('gui', rend_Image)
-				#cv2.waitKey(1)
-				print status_text.replace('\n', ', ')
+				cv2.imshow('gui', rend_Image)
+				cv2.waitKey(1)
+				#print status_text.replace('\n', ', ')
 
 			else:
 				print "average", (total * 1.0)/count

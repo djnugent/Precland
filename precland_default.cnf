@@ -19,13 +19,16 @@ record_type = image
 source = gopro
 background_capture = False
 has_gimbal = True
-horizontal-fov = 94.4
-vertical-fov = 55.0
-matrix = 614.01269552 0.0 315.00073982
-	0.0 614.43556296 237.14926858
+undistort = False
+horizontal-fov = 97.3044
+vertical-fov = 58.2197
+#horizontal-fov = 83.468 undistorted FOV
+#vertical-fov = 55.195 undistorted FOV
+matrix = 764.36600634 0.0 663.58169499
+	0.0 764.86442335 363.45071788
 	0.0 0.0 1.0
 
-distortion = 0.12269303 -0.26618881 0.00129035 0.00081791 0.17005303
+distortion = -0.29435659 0.14030301 0.0 0.0 0.0
 
 
 [simulator]
@@ -38,15 +41,17 @@ target_location = ~/precland/Targets/mat_v1.jpg
 
 [general]
 always_run = False
+target_internal_diameter = 0.60325
+resize_alt_thres = 7.0
 
 [land_control]
 operation_mode = velocity
 init_dec_speed = 1.2
-final_dec_speed = 0.35
+final_dec_speed = 0.5
 init_dec_alt = 20
-goto_alt_step = 0.75
-goto_distance = 0.5
-final_dec_alt = 3.5
+goto_alt_step = 1.5
+goto_distance = 1.0
+final_dec_alt = 6
 abort_alt = 5
 landed_alt = 0.25
 horz_scalar = 1.2

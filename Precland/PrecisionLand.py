@@ -58,6 +58,8 @@ class PrecisionLand(object):
         #general
         #Run the program no matter what mode or location; Useful for debug purposes
         self.always_run = self.config.get_boolean('general', 'always_run', True)
+        self.target_size = self.config.get_float('general','target_internal_diameter',0.60325)
+        self.resize_alt_thres = self.config.get_float('general','resize_alt_thres', 7)
 
         #logging
         #create a logger and set log levels
@@ -75,6 +77,11 @@ class PrecisionLand(object):
         self.vfov = config.get_float('camera','vfov',46)
         self.video = Video(self.camera_src,self.background_capture)
         self.has_gimbal = self.config.get_boolean('camera', 'has_gimbal', False)
+        self.undistort = self.config.get_boolean('camera','undistort', True)
+        self.matrix = self.config.get_array('camera','matrix',None)
+        self.distortion = self.config.get_array('camera','distortion', None)
+        if self.matrix is None or self.distortion is None:
+            raise StandardError("Please fix config file. Add matrix and distortion arrays")
 
 
         #PX4flow as capture device
@@ -160,7 +167,7 @@ class PrecisionLand(object):
                 perf.exit(function = 'get_image')
 
                 perf.enter()
-                small_frame, scale = self.reduce_frame(frame, 0.5 , 7 ,altitude)
+                small_frame, scale = self.preprocess(frame, 0.5 ,altitude)
                 perf.exit(function='reduce_frame')
                 #run target detector
                 perf.enter()
@@ -225,17 +232,23 @@ class PrecisionLand(object):
 
         #feed our land controller with new info if we have it
         if best_ring is not None:
+            target_pos_meters = best_ring.get_xyz_meters(self.target_size,img_width, img_height, self.hfov * scale, self.vfov * scale)
             angular_offset = best_ring.get_angular_offset(img_width, img_height, self.hfov * scale, self.vfov * scale)
-            print "timestamp",timestamp
-            self.land_control.consume_target_offset(angular_offset,timestamp)
+            self.land_control.consume_target_offset(angular_offset,timestamp,target_pos_meters.z)
 
         return best_ring
 
 
-    def reduce_frame(self, image, scale, alt_thres, altitude):
-        if altitude > alt_thres:
+    def preprocess(self, image, scale, altitude):
+        #remove distortion from video
+        if self.undistort:
+            image = cv2.undistort(image,self.matrix, self.distortion)
+
+        #crop image
+        if altitude > self.resize_alt_thres:
             img_size = Point(image.shape[1], image.shape[0])
             image, origin = roi(image, img_size * scale, img_size/2)
+        #subsample image
         else:
             image = cv2.resize(image,(0,0), fx = scale,fy = scale)
             scale = 1.0
@@ -244,30 +257,14 @@ class PrecisionLand(object):
 
 # if starting from mavproxy
 if __name__ == "__builtin__":
-    try:
-        #load config file
-        config = Config("precland","/home/root/precland/precland_default.cnf")
+    #load config file
+    config = Config("precland","/home/root/precland/precland_default.cnf")
 
-        # start precision landing
-        strat = PrecisionLand(config)
+    # start precision landing
+    strat = PrecisionLand(config)
 
-        # connect to droneapi
-        strat.connect()
+    # connect to droneapi
+    strat.connect()
 
-        # run strategy
-        strat.run()
-    except:
-        import inspect
-        st = ''
-        st += 'Traceback (most recent call last):\n'
-        for item in reversed(inspect.stack()[2:]):
-            st += '    File "{1}", line {2}, in {3}\n'.format(*item)
-        for line in item[4]:
-            st += '    ' + line.lstrip()
-        for item in inspect.trace():
-            st += '        File "{1}", line {2}, in {3}\n'.format(*item)
-        for line in item[4]:
-            st += '    ' + line.lstrip()
-        f = file("/pl.log","w")
-        f.write(st)
-        f.close()
+    # run strategy
+    strat.run()
